@@ -1,1 +1,3 @@
-# mdrpacker
+# minepack
+
+WIP minecraft package manager
