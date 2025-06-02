@@ -74,16 +74,39 @@ async function importPackwiz(inputDir: string, outputDir: string) {
             fs.writeFileSync(stubPath, JSON.stringify(modData, null, 4));
             console.log(chalk.green(`[import] Converted ${folder}: ${modData.name}`));
         }
-        // Copy all non-.pw.toml files to overrides
-        const overridesDir = path.join(outputDir, "overrides", folder);
-        fs.mkdirSync(overridesDir, { recursive: true });
+        // Copy all non-.pw.toml files as overrides, preserving relative folder structure
         for (const file of fs.readdirSync(inDir)) {
             if (!file.endsWith(".pw.toml")) {
-                fs.copyFileSync(path.join(inDir, file), path.join(overridesDir, file));
-                console.log(chalk.gray(`[import] Copied ${file} to overrides/${folder}/`));
+                const srcPath = path.join(inDir, file);
+                const destPath = path.join(outputDir, folder, file);
+                fs.copyFileSync(srcPath, destPath);
+                console.log(chalk.gray(`[import] Copied override: ${file} -> ${destPath}`));
             }
         }
     }
+    // Copy every file/folder from the packwiz project to the output, except for .pw.toml files (which are converted)
+    const skipExt = ".pw.toml";
+    const skipFolders = new Set(["mods", "resourcepacks", "shaderpacks", "datapacks", "plugins"]);
+    function copyRecursive(srcDir: string, destDir: string) {
+        for (const entry of fs.readdirSync(srcDir)) {
+            const srcPath = path.join(srcDir, entry);
+            const destPath = path.join(destDir, entry);
+            const stat = fs.statSync(srcPath);
+            if (stat.isDirectory()) {
+                // Don't copy content folders here (handled above)
+                if (skipFolders.has(entry)) continue;
+                fs.mkdirSync(destPath, { recursive: true });
+                copyRecursive(srcPath, destPath);
+            } else {
+                // Don't copy .pw.toml files (handled above)
+                if (entry.endsWith(skipExt)) continue;
+                fs.mkdirSync(path.dirname(destPath), { recursive: true });
+                fs.copyFileSync(srcPath, destPath);
+                console.log(chalk.gray(`[import] Copied file: ${srcPath} -> ${destPath}`));
+            }
+        }
+    }
+    copyRecursive(cwd, outputDir);
     console.log(chalk.bold.green("Packwiz import complete!"));
 }
 
