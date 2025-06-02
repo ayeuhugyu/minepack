@@ -1,5 +1,6 @@
 import { commands, globalFlags, getCommand } from './lib/command';
 import './commands/help'; // Register help command
+import './commands/version'; // Register version command
 import './commands/init'; // Register init command
 import './commands/add'; // Register add command
 import './commands/list'; // Register list command
@@ -9,6 +10,7 @@ import './commands/remove'; // Register remove command
 import './commands/export'; // Register export command
 import './commands/import'; // Register import command
 import './commands/update'; // Register update command
+import './commands/selfupdate'; // Register self-update command
 
 function parseArgs(argv: string[], flagDefs: import('./lib/command').CommandFlag[] = []) {
     const args: Record<string, string | boolean> = {};
