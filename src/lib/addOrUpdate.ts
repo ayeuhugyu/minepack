@@ -56,6 +56,11 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
     const packGameVersion = packMeta.gameversion;
     const packModloader = packMeta.modloader?.name;
 
+    // Helper to sanitize names for filenames
+    function sanitize(name: string) {
+        return (name || "content").replace(/[/\\?%*:|"<>.]+/g, '_').replace(/\.+$/, '').replace(/_+/g, '_');
+    }
+
     // If --url is provided, or input is a direct non-Modrinth URL, just download the file to mods/ (unless --type is set)
     if ((flags.url || (modInput.startsWith('https://') && !modInput.includes('modrinth.com/mod/')))) {
         const url = (flags.url as string) || modInput;
@@ -90,7 +95,7 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
             });
             let stats = { size: 0 };
             try { stats = fs.statSync(filePath); } catch {}
-            const stubPath = path.join(outDir, filename + ".json");
+            const stubPath = path.join(outDir, sanitize(filename) + ".json");
             if (verbose) console.log(chalk.gray(`[info] Writing stub to ${stubPath}`));
             fs.writeFileSync(stubPath, JSON.stringify({
                 type: contentType,
@@ -145,7 +150,7 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
             if (verbose) console.log(chalk.green(`[info] Downloaded file to ${filePath}`));
             return { status: 'success', message: `Downloaded file to ${filePath}` };
         } else {
-            const stubPath = path.join(outDir, (modData.name ?? "content") + ".json");
+            const stubPath = path.join(outDir, sanitize(modData.name ?? "content") + ".json");
             if (verbose) console.log(chalk.gray(`[info] Writing stub to ${stubPath}`));
             fs.writeFileSync(stubPath, JSON.stringify(modData, null, 4));
             if (verbose) console.log(chalk.green(`[info] Created stub at ${stubPath}`));
@@ -320,7 +325,7 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
         if (verbose) console.log(chalk.green(`[info] Downloaded file to ${filePath}`));
         return { status: 'success', message: `Downloaded file to ${filePath}` };
     } else {
-        const stubPath = path.join(outDir, (name || "content") + ".json");
+        const stubPath = path.join(outDir, sanitize(name || "content") + ".json");
         if (verbose) console.log(chalk.gray(`[info] Writing stub to ${stubPath}`));
         fs.writeFileSync(stubPath, JSON.stringify(modData, null, 4));
         if (verbose) console.log(chalk.green(`[info] Created stub at ${stubPath}`));

@@ -7,6 +7,7 @@ import './commands/query'; // Register remove command
 import './commands/search'; // Register search command
 import './commands/remove'; // Register remove command
 import './commands/export'; // Register export command
+import './commands/import'; // Register import command
 import './commands/update'; // Register update command
 
 function parseArgs(argv: string[], flagDefs: import('./lib/command').CommandFlag[] = []) {

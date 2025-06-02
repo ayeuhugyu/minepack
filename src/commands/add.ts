@@ -100,7 +100,8 @@ const addCommand = new Command({
             flags,
             packMeta: packJson,
             interactive: true,
-            verbose: true
+            verbose: true,
+            sanitizeName: true
         });
         if (result && result.message) {
             if (result.status === 'success') {
