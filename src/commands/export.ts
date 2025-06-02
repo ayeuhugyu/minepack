@@ -183,22 +183,23 @@ const exportCommand = new Command({
         const zipPath = path.resolve(process.cwd(), `${packMeta.name.replace(/\s+/g, "_")}-${packMeta.version}.mrpack`);
         let zipped = false;
         let zipError = null;
-        // Try native PowerShell first
+        // Cross-platform zipping
+        const isWin = process.platform === "win32";
         try {
-            const zipCmd = `Compress-Archive -Path '${exportDir}/*' -DestinationPath '${zipPath}.zip' -Force`;
-            console.log(chalk.gray(`[info] Zipping export folder with native PowerShell...`));
-            execSync(zipCmd, { stdio: "inherit", shell: "pwsh.exe" });
+            if (isWin) {
+                // Try native PowerShell first
+                const zipCmd = `Compress-Archive -Path '${exportDir}/*' -DestinationPath '${zipPath}.zip' -Force`;
+                console.log(chalk.gray(`[info] Zipping export folder with native PowerShell...`));
+                execSync(zipCmd, { stdio: "inherit", shell: "pwsh.exe" });
+            } else {
+                // Use system zip on Linux/macOS
+                const zipCmd = `cd '${exportDir}' && zip -r '${zipPath}.zip' .`;
+                console.log(chalk.gray(`[info] Zipping export folder with system zip...`));
+                execSync(zipCmd, { stdio: "inherit", shell: "/bin/bash" });
+            }
             zipped = true;
         } catch (err) {
             zipError = err;
-            try {
-                const zipCmd = `powershell Compress-Archive -Path '${exportDir}/*' -DestinationPath '${zipPath}.zip' -Force`;
-                console.log(chalk.gray(`[info] Zipping export folder with 'powershell' command...`));
-                execSync(zipCmd, { stdio: "inherit" });
-                zipped = true;
-            } catch (err2) {
-                zipError = err2;
-            }
         }
         if (!zipped) {
             console.log(chalk.red(`[error] Failed to zip export folder. Please zip the .export folder manually. Error: ${zipError}`));
