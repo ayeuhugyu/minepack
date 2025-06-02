@@ -39,9 +39,14 @@ jobs:
           name: minepack-binaries
           path: build
 
-      - name: Create GitHub Release
+      - name: Upload binaries to existing GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: build/*
+          fail_on_unmatched_files: false
+          draft: false
+          prerelease: false
+          tag_name: ${{ github.ref_name }}
+          # Do not set 'body' or 'generate_release_notes' so manual changelog is preserved
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
