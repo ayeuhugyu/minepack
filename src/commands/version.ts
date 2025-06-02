@@ -3,8 +3,12 @@ import chalk from "chalk";
 import fs from "fs-extra";
 import path from "path";
 
+// Use build-time injected version if available
+const BUILT_VERSION = typeof process !== 'undefined' && process.env.MINEPACK_VERSION ? process.env.MINEPACK_VERSION : undefined;
+
 function getVersion() {
-    // Try to read from package.json
+    if (BUILT_VERSION) return BUILT_VERSION;
+    // Try to read from package.json (dev mode only)
     try {
         const pkgPath = path.resolve(__dirname, "../../package.json");
         if (fs.existsSync(pkgPath)) {

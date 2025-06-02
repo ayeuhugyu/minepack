@@ -22,6 +22,7 @@ jobs:
           TAG_VERSION=${GITHUB_REF_NAME#v}
           echo "Setting package.json version to $TAG_VERSION"
           jq ".version=\"$TAG_VERSION\"" package.json > package.json.tmp && mv package.json.tmp package.json
+          echo "MINEPACK_VERSION=$TAG_VERSION" >> $GITHUB_ENV
         shell: bash
 
       - name: Install dependencies
@@ -29,6 +30,8 @@ jobs:
 
       - name: Build all binaries
         run: bun compile:all
+        env:
+          MINEPACK_VERSION: ${{ env.MINEPACK_VERSION }}
 
       - name: Upload binaries as artifacts
         uses: actions/upload-artifact@v4
