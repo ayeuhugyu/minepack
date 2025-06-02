@@ -5,7 +5,7 @@ import {
     commands,
     globalFlags,
     getCommand
-} from '../command';
+} from '../lib/command';
 
 // Help command implementation
 const helpCommand = new Command({
@@ -19,6 +19,7 @@ const helpCommand = new Command({
             required: false
         }
     ],
+    flags: [],
     examples: [
         {
             description: 'Show all commands',
@@ -53,6 +54,15 @@ const helpCommand = new Command({
             for (const arg of cmd.arguments) {
                 const aliasStr = arg.aliases && arg.aliases.length ? chalk.gray(` (aliases: ${arg.aliases.join(", ")})`) : '';
                 console.log(`  ${chalk.yellow(arg.name)}${aliasStr} - ${arg.description}`);
+            }
+            console.log("");
+        }
+        // Show flags for the command (if any)
+        if (cmd.flags && cmd.flags.length) {
+            console.log(chalk.bold("FLAGS:"));
+            for (const flag of cmd.flags) {
+                const aliasStr = flag.aliases && flag.aliases.length ? chalk.gray(` (aliases: ${flag.aliases.join(", ")})`) : '';
+                console.log(`  ${chalk.blue(`--${flag.name}`)}${aliasStr} - ${flag.description}`);
             }
             console.log("");
         }

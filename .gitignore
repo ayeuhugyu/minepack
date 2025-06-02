@@ -6,6 +6,7 @@ out
 dist
 *.tgz
 build
+test
 
 # code coverage
 coverage
