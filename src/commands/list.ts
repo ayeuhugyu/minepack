@@ -58,10 +58,12 @@ const listCommand = new Command({
     description: "List all mods and content in the pack (mods, resourcepacks, shaderpacks, etc).",
     arguments: [],
     flags: [
-        { name: "url", aliases: [], description: "Show download URLs", takesValue: false },
-        { name: "filename", aliases: [], description: "Show file names", takesValue: false },
-        { name: "side", aliases: [], description: "Show only content for a specific side (client/server/both)", takesValue: true },
-        { name: "type", aliases: [], description: "Show only a specific content type (mod/resourcepack/shaderpack/etc)", takesValue: true }
+        { name: "url", aliases: ["u"], description: "Show download URLs", takesValue: false },
+        { name: "filename", aliases: ["f"], description: "Show file names", takesValue: false },
+        { name: "side", aliases: ["s"], description: "Show only content for a specific side (client/server/both)", takesValue: true },
+        { name: "type", aliases: ["t"], description: "Show only a specific content type (mod/resourcepack/shaderpack/etc)", takesValue: true },
+        { name: "clean", aliases: ["c"], description: "Show only the mod/content name (no extra info)", takesValue: false },
+        { name: "index", aliases: ["i"], description: "Show an index number next to each entry", takesValue: false }
     ],
     examples: [
         { description: "List all content", usage: "minepack list" },
@@ -80,15 +82,22 @@ const listCommand = new Command({
             console.log(chalk.yellow("No content found in this pack."));
             return;
         }
-        for (const item of content) {
+        content.forEach((item, idx) => {
+            if (flags.clean) {
+                let line = item.name || item.filename || "?";
+                if (flags.index) line = `[${idx + 1}] ` + line;
+                console.log(line);
+                return;
+            }
             let line = chalk.green(item.name || item.filename || "?");
+            if (flags.index) line = chalk.yellow(`[${idx + 1}] `) + line;
             line += chalk.gray(` [${item._folder}]`);
             if (flags.filename) line += chalk.gray(` [${item.filename || "?"}]`);
             if (flags.url && item.download?.url) line += chalk.cyan(` <${item.download.url}>`);
             if (!flags.side && item.side) line += chalk.magenta(` (${item.side})`);
             if (!item._isStub) line += chalk.yellow(" [file]");
             console.log(line);
-        }
+        });
     }
 });
 
