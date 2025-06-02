@@ -159,7 +159,7 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
     }
 
     // Try to parse as Modrinth URL
-    let modrinthId = null;
+    let modrinthId = modInput;
     const modrinthUrlMatch = modInput.match(/modrinth\.com\/mod\/([\w-]+)/);
     if (modrinthUrlMatch) {
         modrinthId = modrinthUrlMatch[1];
@@ -169,11 +169,28 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
         if (verbose) console.log(chalk.gray(`[info] Using Modrinth ID: ${modrinthId}`));
     }
 
-    if (!modrinthId) {
-        // Search Modrinth
-        if (verbose) console.log(chalk.gray(`[info] Searching Modrinth for: ${modInput}`));
-        const results = await searchModrinth(modInput);
-        if (!results.length) {
+    let triedSearch = false;
+    let searchResults = [];
+    let searchTerm = modInput;
+
+    // Try to fetch by ID first
+    if (modrinthId) {
+        if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for ID: ${modrinthId}`));
+        modrinthProject = await getModrinthProject(modrinthId);
+        if (!modrinthProject) {
+            if (verbose) console.log(chalk.yellow(`[info] Could not find Modrinth project with that ID. Falling back to search...`));
+            triedSearch = true;
+            searchResults = await searchModrinth(modrinthId);
+        }
+    } else {
+        // No ID, must search
+        triedSearch = true;
+        if (verbose) console.log(chalk.gray(`[info] Searching Modrinth for: ${searchTerm}`));
+        searchResults = await searchModrinth(searchTerm);
+    }
+
+    if (triedSearch) {
+        if (!searchResults.length) {
             if (verbose) console.log(chalk.red(`[info] No content found for that search term.`));
             return { status: 'notfound', message: 'No content found for that search term.' };
         }
@@ -181,26 +198,33 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
             // Prompt user to select
             const readline = await import('readline/promises');
             const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-            results.forEach((r: any, i: number) => {
+            searchResults.forEach((r: any, i: number) => {
                 console.log(`  [${i + 1}] ${r.title} (${r.project_id}) - ${r.project_type} - ${r.description}`);
             });
             let idx = parseInt(await rl.question('Select project [number]: '), 10) - 1;
-            while (isNaN(idx) || idx < 0 || idx >= results.length) {
+            while (isNaN(idx) || idx < 0 || idx >= searchResults.length) {
                 idx = parseInt(await rl.question('Invalid selection. Select project [number]: '), 10) - 1;
             }
-            if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for selection: ${results[idx].project_id}`));
-            modrinthId = results[idx].project_id;
+            if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for selection: ${searchResults[idx].project_id}`));
+            modrinthId = searchResults[idx].project_id;
             await rl.close();
         } else if (onPrompt) {
-            const idx = await onPrompt(results);
-            if (typeof idx !== 'number' || idx < 0 || idx >= results.length) {
+            const idx = await onPrompt(searchResults);
+            if (typeof idx !== 'number' || idx < 0 || idx >= searchResults.length) {
                 if (verbose) console.log(chalk.yellow(`[info] Skipped by user.`));
                 return { status: 'skipped', message: 'Skipped by user.' };
             }
-            modrinthId = results[idx].project_id;
+            modrinthId = searchResults[idx].project_id;
         } else {
             if (verbose) console.log(chalk.yellow(`[info] No selection made.`));
             return { status: 'skipped', message: 'No selection made.' };
+        }
+        // Try fetching again with new modrinthId
+        if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for ID: ${modrinthId}`));
+        modrinthProject = await getModrinthProject(modrinthId);
+        if (!modrinthProject) {
+            if (verbose) console.log(chalk.red(`[info] Could not find Modrinth project after search.`));
+            return { status: 'notfound', message: 'Could not find Modrinth project with that ID or search.' };
         }
     }
 
@@ -208,42 +232,8 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
     if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for ID: ${modrinthId}`));
     modrinthProject = await getModrinthProject(modrinthId);
     if (!modrinthProject) {
-        if (verbose) console.log(chalk.yellow(`[info] Could not find Modrinth project with that ID. Attempting Modrinth search for: ${modrinthId}`));
-        // Try searching Modrinth using the ID/slug as a query
-        const searchResults = await searchModrinth(modrinthId);
-        if (searchResults.length) {
-            if (interactive) {
-                const readline = await import('readline/promises');
-                const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-                searchResults.forEach((r: any, i: number) => {
-                    console.log(`  [${i + 1}] ${r.title} (${r.project_id}) - ${r.project_type} - ${r.description}`);
-                });
-                let idx = parseInt(await rl.question('Select project [number]: '), 10) - 1;
-                while (isNaN(idx) || idx < 0 || idx >= searchResults.length) {
-                    idx = parseInt(await rl.question('Invalid selection. Select project [number]: '), 10) - 1;
-                }
-                if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for selection: ${searchResults[idx].project_id}`));
-                modrinthId = searchResults[idx].project_id;
-                await rl.close();
-            } else if (onPrompt) {
-                const idx = await onPrompt(searchResults);
-                if (typeof idx !== 'number' || idx < 0 || idx >= searchResults.length) {
-                    if (verbose) console.log(chalk.yellow(`[info] Skipped by user.`));
-                    return { status: 'skipped', message: 'Skipped by user.' };
-                }
-                modrinthId = searchResults[idx].project_id;
-            } else {
-                if (verbose) console.log(chalk.yellow(`[info] No selection made.`));
-                return { status: 'skipped', message: 'No selection made.' };
-            }
-            // Try fetching again with new modrinthId
-            if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for ID: ${modrinthId}`));
-            modrinthProject = await getModrinthProject(modrinthId);
-        }
-        if (!modrinthProject) {
-            if (verbose) console.log(chalk.red(`[info] Could not find Modrinth project after search.`));
-            return { status: 'notfound', message: 'Could not find Modrinth project with that ID or search.' };
-        }
+        if (verbose) console.log(chalk.red(`[info] Could not find Modrinth project with that ID.`));
+        return { status: 'notfound', message: 'Could not find Modrinth project with that ID.' };
     }
     contentType = modrinthTypeToContentType(modrinthProject.project_type);
     folder = contentTypeToFolder(contentType);
