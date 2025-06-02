@@ -17,12 +17,17 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Set src/version.ts to match tag
+        run: |
+          TAG_VERSION=${GITHUB_REF_NAME#v}
+          echo "export const VERSION = \"$TAG_VERSION\";" > src/version.ts
+        shell: bash
+
       - name: Set package.json version to match tag
         run: |
           TAG_VERSION=${GITHUB_REF_NAME#v}
           echo "Setting package.json version to $TAG_VERSION"
           jq ".version=\"$TAG_VERSION\"" package.json > package.json.tmp && mv package.json.tmp package.json
-          echo "MINEPACK_VERSION=$TAG_VERSION" >> $GITHUB_ENV
         shell: bash
 
       - name: Install dependencies
