@@ -62,8 +62,7 @@ const listCommand = new Command({
         { name: "filename", aliases: ["f"], description: "Show file names", takesValue: false },
         { name: "side", aliases: ["s"], description: "Show only content for a specific side (client/server/both)", takesValue: true },
         { name: "type", aliases: ["t"], description: "Show only a specific content type (mod/resourcepack/shaderpack/etc)", takesValue: true },
-        { name: "clean", aliases: ["c"], description: "Show only the mod/content name (no extra info)", takesValue: false },
-        { name: "index", aliases: ["i"], description: "Show an index number next to each entry", takesValue: false }
+        { name: "clean", aliases: ["c"], description: "Show only the mod/content name (no extra info)", takesValue: false }
     ],
     examples: [
         { description: "List all content", usage: "minepack list" },
@@ -84,13 +83,10 @@ const listCommand = new Command({
         }
         content.forEach((item, idx) => {
             if (flags.clean) {
-                let line = item.name || item.filename || "?";
-                if (flags.index) line = `[${idx + 1}] ` + line;
-                console.log(line);
+                console.log(item.name || item.filename || "?");
                 return;
             }
-            let line = chalk.green(item.name || item.filename || "?");
-            if (flags.index) line = chalk.yellow(`[${idx + 1}] `) + line;
+            let line = chalk.yellow(`[${idx + 1}] `) + chalk.green(item.name || item.filename || "?");
             line += chalk.gray(` [${item._folder}]`);
             if (flags.filename) line += chalk.gray(` [${item.filename || "?"}]`);
             if (flags.url && item.download?.url) line += chalk.cyan(` <${item.download.url}>`);
