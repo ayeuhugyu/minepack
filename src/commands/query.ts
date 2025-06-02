@@ -36,6 +36,7 @@ const queryCommand = new Command({
     async execute(args) {
         const mods = readAllMods();
         const userInput = args.mod as string;
+        console.log(chalk.gray(`[info] Loaded ${mods.length} mods from mods directory`));
         const result = findMod(mods, userInput);
         if (result.mod) {
             console.log(chalk.green(`Found mod: ${result.mod.name || result.mod._filename}`));

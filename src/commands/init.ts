@@ -22,6 +22,12 @@ const initCommand = new Command({
     description: 'Initializes a new Minepack project in the current or specified directory.',
     flags: [
         {
+            name: "force",
+            aliases: ["f"],
+            description: "Force re-initialization even if pack.json exists.",
+            takesValue: false
+        },
+        {
             name: 'directory',
             aliases: ['d'],
             description: 'The directory to initialize the project in. Defaults to the current directory.',
@@ -59,7 +65,12 @@ const initCommand = new Command({
 
         // === Detect existing pack.json ===
         const packJsonPath = path.join(dir, 'pack.json');
-        if (fs.existsSync(packJsonPath)) {
+        if (fs.existsSync(packJsonPath) && !flags.force) {
+            console.log(chalk.red("A pack.json already exists in this directory. Use --force to re-initialize."));
+            return;
+        }
+
+        if (fs.existsSync(packJsonPath) && !flags.force) {
             try {
                 const raw = fs.readFileSync(packJsonPath, 'utf8');
                 const parsed = JSON.parse(raw);

@@ -1,7 +1,7 @@
 export enum ModLoader {
-    Fabric = 'fabric',
+    Fabric = 'fabric-loader',
     Forge = 'forge',
-    Quilt = 'quilt',
+    Quilt = 'quilt-loader',
     NeoForge = 'neoforge',
 }
 

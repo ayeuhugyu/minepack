@@ -36,9 +36,11 @@ const removeCommand = new Command({
     async execute(args) {
         const mods = readAllMods();
         const userInput = args.mod as string;
+        console.log(chalk.gray(`[info] Loaded ${mods.length} mods from mods directory`));
         const result = findMod(mods, userInput);
         let toRemove: (ModData & { _filename?: string }) | null = null;
         if (result.mod) {
+            console.log(chalk.gray(`[info] Exact match found: ${result.mod.name || result.mod._filename}`));
             toRemove = result.mod;
         } else if (result.fuzzy && result.matches.length) {
             console.log(chalk.yellow("No exact match found. Top 5 fuzzy matches:"));
@@ -50,6 +52,7 @@ const removeCommand = new Command({
             let idx = parseInt(await rl.question('Select mod to remove [number, or 0 to cancel]: '), 10) - 1;
             if (idx >= 0 && idx < result.matches.length) {
                 toRemove = result.matches[idx];
+                console.log(chalk.gray(`[info] User selected: ${toRemove.name || toRemove._filename}`));
             } else {
                 console.log(chalk.gray("No mod selected."));
             }
@@ -58,6 +61,7 @@ const removeCommand = new Command({
         if (toRemove && toRemove._filename) {
             const modsDir = getModsDir();
             const filePath = path.join(modsDir, toRemove._filename);
+            console.log(chalk.gray(`[info] Removing file: ${filePath}`));
             fs.unlinkSync(filePath);
             console.log(chalk.green(`Removed mod: ${toRemove.name || toRemove._filename}`));
         } else if (!toRemove) {

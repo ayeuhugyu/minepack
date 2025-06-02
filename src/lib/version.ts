@@ -23,7 +23,7 @@ type ModLoaderComponent = {
 
 export const ModLoaders: Record<string, ModLoaderComponent> = {
     fabric: {
-        name: 'fabric',
+        name: 'fabric-loader',
         friendlyName: 'Fabric loader',
         versionListGetter: fetchMavenVersionList('https://maven.fabricmc.net/net/fabricmc/fabric-loader/maven-metadata.xml'),
     },
@@ -38,7 +38,7 @@ export const ModLoaders: Record<string, ModLoaderComponent> = {
         versionListGetter: fetchMavenVersionPrefixedList('https://repo.mumfrey.com/content/repositories/snapshots/com/mumfrey/liteloader/maven-metadata.xml', 'LiteLoader'),
     },
     quilt: {
-        name: 'quilt',
+        name: 'quilt-loader',
         friendlyName: 'Quilt loader',
         versionListGetter: fetchMavenVersionList('https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-loader/maven-metadata.xml'),
     },

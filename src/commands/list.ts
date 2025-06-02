@@ -21,34 +21,72 @@ function readAllMods(): ModData[] {
     });
 }
 
+function getContentFolders() {
+    return ["mods", "resourcepacks", "shaderpacks", "datapacks", "plugins"];
+}
+
+function readAllContent() {
+    const folders = getContentFolders();
+    let all: Array<{ type: string, name: string, filename: string, side?: string, download?: any, fileSize?: number, _folder: string, _isStub: boolean }> = [];
+    for (const folder of folders) {
+        const dir = path.resolve(process.cwd(), folder);
+        if (!fs.existsSync(dir)) continue;
+        for (const file of fs.readdirSync(dir)) {
+            const ext = path.extname(file).toLowerCase();
+            if (ext === ".json") {
+                try {
+                    const data = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8"));
+                    all.push({ ...data, _folder: folder, _isStub: true, filename: data.filename || file });
+                } catch {}
+            } else if ([".jar", ".zip", ".mcpack", ".datapack", ".litemod"].includes(ext)) {
+                // Directly downloaded file
+                all.push({
+                    type: folder.slice(-1) === "s" ? folder.slice(0, -1) : folder, // crude type guess
+                    name: file,
+                    filename: file,
+                    _folder: folder,
+                    _isStub: false
+                });
+            }
+        }
+    }
+    return all;
+}
+
 const listCommand = new Command({
     name: "list",
-    description: "List all mods in the pack.",
+    description: "List all mods and content in the pack (mods, resourcepacks, shaderpacks, etc).",
     arguments: [],
     flags: [
         { name: "url", aliases: [], description: "Show download URLs", takesValue: false },
-        { name: "filename", aliases: [], description: "Show mod jar filenames", takesValue: false },
-        { name: "side", aliases: [], description: "Show only mods for a specific side (client/server/both)", takesValue: true }
+        { name: "filename", aliases: [], description: "Show file names", takesValue: false },
+        { name: "side", aliases: [], description: "Show only content for a specific side (client/server/both)", takesValue: true },
+        { name: "type", aliases: [], description: "Show only a specific content type (mod/resourcepack/shaderpack/etc)", takesValue: true }
     ],
     examples: [
-        { description: "List all mods", usage: "minepack list" },
-        { description: "List all mods with URLs", usage: "minepack list --url" },
-        { description: "List only client-side mods", usage: "minepack list --side client" }
+        { description: "List all content", usage: "minepack list" },
+        { description: "List all with URLs", usage: "minepack list --url" },
+        { description: "List only client-side mods", usage: "minepack list --side client --type mod" }
     ],
     execute(_args, flags) {
-        let mods = readAllMods();
+        let content = readAllContent();
         if (flags.side) {
-            mods = mods.filter(m => (m.side || "both").toLowerCase() === String(flags.side).toLowerCase());
+            content = content.filter(m => (m.side || "both").toLowerCase() === String(flags.side).toLowerCase());
         }
-        if (!mods.length) {
-            console.log(chalk.yellow("No mods found in this pack."));
+        if (flags.type) {
+            content = content.filter(m => (m.type || m._folder).toLowerCase() === String(flags.type).toLowerCase());
+        }
+        if (!content.length) {
+            console.log(chalk.yellow("No content found in this pack."));
             return;
         }
-        for (const mod of mods) {
-            let line = chalk.green(mod.name || mod.filename || "?");
-            if (flags.filename) line += chalk.gray(` [${mod.filename || "?"}]`);
-            if (flags.url) line += chalk.cyan(` <${mod.download?.url || "?"}>`);
-            if (!flags.side) line += chalk.magenta(` (${mod.side || "both"})`);
+        for (const item of content) {
+            let line = chalk.green(item.name || item.filename || "?");
+            line += chalk.gray(` [${item._folder}]`);
+            if (flags.filename) line += chalk.gray(` [${item.filename || "?"}]`);
+            if (flags.url && item.download?.url) line += chalk.cyan(` <${item.download.url}>`);
+            if (!flags.side && item.side) line += chalk.magenta(` (${item.side})`);
+            if (!item._isStub) line += chalk.yellow(" [file]");
             console.log(line);
         }
     }
