@@ -1,6 +1,6 @@
 # minepack
 
-A modern, robust Minecraft modpack manager and CLI tool.
+A modern Minecraft modpack manager and CLI tool that feels similar to real package managers.
 
 ## Features
 - **Cross-platform CLI** for managing Minecraft modpacks
@@ -14,7 +14,7 @@ A modern, robust Minecraft modpack manager and CLI tool.
 
 ### Download prebuilt binaries
 - Visit the [Releases page](https://github.com/ayeuhugyu/minepack/releases) to download the latest version for your OS.
-- Place the binary somewhere in your PATH (e.g. `C:\bin`, `/usr/local/bin`, etc).
+- Place the binary somewhere in your PATH (e.g. `/usr/local/bin`).
 
 ### Build from source
 1. [Install Bun](https://bun.sh/)
@@ -62,6 +62,10 @@ Run `minepack help` for full command/flag info.
 ### Import/Export
 - **Import:** Converts Packwiz projects (including all supported content types and overrides) to minepack format
 - **Export:** Creates a Modrinth `.mrpack` with correct metadata, file sizes, and loader mapping
+
+## Adding Configs or Other Local Files
+
+The .mrpack format has a system for adding local files, Minepack will take any files you put anywhere inside of it that it doesn't recognize and replicate them to the overrides folder.
 
 ## Contributing
 PRs and issues welcome! See the code for details.
