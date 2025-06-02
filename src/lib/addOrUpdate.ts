@@ -208,8 +208,42 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
     if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for ID: ${modrinthId}`));
     modrinthProject = await getModrinthProject(modrinthId);
     if (!modrinthProject) {
-        if (verbose) console.log(chalk.red(`[info] Could not find Modrinth project with that ID.`));
-        return { status: 'notfound', message: 'Could not find Modrinth project with that ID.' };
+        if (verbose) console.log(chalk.yellow(`[info] Could not find Modrinth project with that ID. Attempting Modrinth search for: ${modrinthId}`));
+        // Try searching Modrinth using the ID/slug as a query
+        const searchResults = await searchModrinth(modrinthId);
+        if (searchResults.length) {
+            if (interactive) {
+                const readline = await import('readline/promises');
+                const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+                searchResults.forEach((r: any, i: number) => {
+                    console.log(`  [${i + 1}] ${r.title} (${r.project_id}) - ${r.project_type} - ${r.description}`);
+                });
+                let idx = parseInt(await rl.question('Select project [number]: '), 10) - 1;
+                while (isNaN(idx) || idx < 0 || idx >= searchResults.length) {
+                    idx = parseInt(await rl.question('Invalid selection. Select project [number]: '), 10) - 1;
+                }
+                if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for selection: ${searchResults[idx].project_id}`));
+                modrinthId = searchResults[idx].project_id;
+                await rl.close();
+            } else if (onPrompt) {
+                const idx = await onPrompt(searchResults);
+                if (typeof idx !== 'number' || idx < 0 || idx >= searchResults.length) {
+                    if (verbose) console.log(chalk.yellow(`[info] Skipped by user.`));
+                    return { status: 'skipped', message: 'Skipped by user.' };
+                }
+                modrinthId = searchResults[idx].project_id;
+            } else {
+                if (verbose) console.log(chalk.yellow(`[info] No selection made.`));
+                return { status: 'skipped', message: 'No selection made.' };
+            }
+            // Try fetching again with new modrinthId
+            if (verbose) console.log(chalk.gray(`[info] Fetching Modrinth project for ID: ${modrinthId}`));
+            modrinthProject = await getModrinthProject(modrinthId);
+        }
+        if (!modrinthProject) {
+            if (verbose) console.log(chalk.red(`[info] Could not find Modrinth project after search.`));
+            return { status: 'notfound', message: 'Could not find Modrinth project with that ID or search.' };
+        }
     }
     contentType = modrinthTypeToContentType(modrinthProject.project_type);
     folder = contentTypeToFolder(contentType);
