@@ -4,6 +4,7 @@ import './commands/init'; // Register init command
 import './commands/add'; // Register add command
 import './commands/list'; // Register list command
 import './commands/query'; // Register remove command
+import './commands/search'; // Register search command
 import './commands/remove'; // Register remove command
 
 function parseArgs(argv: string[], flagDefs: import('./lib/command').CommandFlag[] = []) {
