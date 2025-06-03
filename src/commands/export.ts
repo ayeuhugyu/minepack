@@ -13,7 +13,7 @@ const SUPPORTED_FOLDERS = [
     "plugins"
 ];
 
-async function collectContent(sideFilter?: string) {
+async function collectContent() {
     const mods: any[] = [];
     for (const folder of SUPPORTED_FOLDERS) {
         const dir = path.resolve(process.cwd(), folder);
@@ -21,9 +21,7 @@ async function collectContent(sideFilter?: string) {
         for (const file of fs.readdirSync(dir)) {
             if (file.endsWith('.json')) {
                 const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8'));
-                if (!sideFilter || (data.side || "both") === sideFilter || data.side === "both") {
-                    mods.push({ ...data, _folder: folder, _filename: file, _fullpath: path.join(dir, file) });
-                }
+                mods.push({ ...data, _folder: folder, _filename: file, _fullpath: path.join(dir, file) });
             }
         }
     }
@@ -44,6 +42,7 @@ async function collectOverrides(exportDir: string, modJsonFiles: Set<string>) {
             const destFolder = path.join(overridesDir, folder);
             fs.mkdirSync(destFolder, { recursive: true });
             fs.copySync(full, path.join(destFolder, file));
+            console.log(chalk.gray(`[info] Copied to overrides: ${folder}/${file}`));
         }
     }
     // Copy any other folders/files except .json stubs, .mrpack files, and pack.json
@@ -51,6 +50,7 @@ async function collectOverrides(exportDir: string, modJsonFiles: Set<string>) {
         if (SUPPORTED_FOLDERS.includes(entry) || entry === "pack.json" || entry === ".export" || entry.endsWith('.mrpack')) continue;
         const full = path.join(process.cwd(), entry);
         fs.copySync(full, path.join(overridesDir, entry));
+        console.log(chalk.gray(`[info] Copied to overrides: ${entry}`));
     }
 }
 
@@ -89,8 +89,12 @@ const exportCommand = new Command({
         const packMeta = JSON.parse(fs.readFileSync(packJsonPath, "utf-8"));
 
         // Collect all mod/content stubs
+        // const side = flags.side as string | undefined;
+        // const mods = await collectContent(side);
+        // const modJsonFiles = new Set(mods.map(m => m._fullpath));
+        // console.log(chalk.gray(`[info] Found ${mods.length} mod/content stubs for export.`));
         const side = flags.side as string | undefined;
-        const mods = await collectContent(side);
+        const mods = await collectContent();
         const modJsonFiles = new Set(mods.map(m => m._fullpath));
         console.log(chalk.gray(`[info] Found ${mods.length} mod/content stubs for export.`));
 
@@ -157,13 +161,23 @@ const exportCommand = new Command({
                     }
                 }
                 if (!fileSize) fileSize = 0;
-                console.log(chalk.gray(`[info] Adding to index: ${mod._folder}/${mod.filename} (${fileSize} bytes)`));
+                // Determine env values based on --side flag
+                let envClient = "required";
+                let envServer = "required";
+                if (flags.side === "client") {
+                    envClient = mod.side === "client" || mod.side === "both" ? "required" : "unsupported";
+                    envServer = mod.side === "server" ? "required" : "unsupported";
+                } else if (flags.side === "server") {
+                    envClient = mod.side === "server" ? "required" : "unsupported";
+                    envServer = mod.side === "server" || mod.side === "both" ? "required" : "unsupported";
+                }
+                console.log(chalk.gray(`[info] Adding to index: ${mod._folder}/${mod.filename} (${fileSize} bytes, client: ${envClient}, server: ${envServer})`));
                 index.files.push({
                     path: `${mod._folder}/${mod.filename}`,
                     hashes: mod.download.hash ? { [mod.download["hash-format"] || "sha1"]: mod.download.hash } : {},
                     env: {
-                        client: mod.side === "server" ? "unsupported" : "required",
-                        server: mod.side === "client" ? "unsupported" : "required"
+                        client: envClient,
+                        server: envServer
                     },
                     downloads: mod.download.url ? [mod.download.url] : [],
                     fileSize
