@@ -109,22 +109,78 @@ async function importPackwiz(inputDir: string, outputDir: string) {
     console.log(chalk.bold.green("Packwiz import complete!"));
 }
 
+async function importOldMinepack(inputDir: string, outputDir: string) {
+    // 1. Read old pack.json
+    const oldPackPath = path.join(inputDir, "pack.json");
+    if (!fs.existsSync(oldPackPath)) {
+        console.log(chalk.red("No pack.json found in the input directory."));
+        return;
+    }
+    const oldPack = JSON.parse(fs.readFileSync(oldPackPath, "utf-8"));
+    // 2. Write new pack.mp.json
+    fs.writeFileSync(path.join(outputDir, "pack.mp.json"), JSON.stringify(oldPack, null, 4));
+    console.log(chalk.green(`Created pack.mp.json from pack.json in ${outputDir}`));
+    // 3. Find all stubs (all .json files in content folders)
+    const contentFolders = ["mods", "resourcepacks", "shaderpacks", "datapacks", "plugins"];
+    let tracked = [];
+    for (const folder of contentFolders) {
+        const inDir = path.join(inputDir, folder);
+        const outDir = path.join(outputDir, folder);
+        if (!fs.existsSync(inDir)) continue;
+        fs.mkdirSync(outDir, { recursive: true });
+        for (const file of fs.readdirSync(inDir)) {
+            if (!file.endsWith(".json")) continue;
+            const oldStubPath = path.join(inDir, file);
+            let stubData;
+            try {
+                stubData = JSON.parse(fs.readFileSync(oldStubPath, "utf-8"));
+            } catch {
+                console.log(chalk.red(`[skip] Invalid JSON: ${oldStubPath}`));
+                continue;
+            }
+            // Optionally validate stubData here (basic check)
+            if (!stubData || typeof stubData !== 'object' || !stubData.name) {
+                console.log(chalk.red(`[skip] Invalid stub: ${oldStubPath}`));
+                continue;
+            }
+            // Write new stub with .mp.json extension
+            let safeName = (stubData.name || stubData.filename || "content").replace(/[/\\?%*:|"<>.]+/g, '_').replace(/\.+$/, '').replace(/_+/g, '_');
+            if (!safeName) safeName = "content";
+            const newStubPath = path.join(outDir, safeName + ".mp.json");
+            fs.writeFileSync(newStubPath, JSON.stringify(stubData, null, 4));
+            tracked.push(path.relative(outputDir, newStubPath));
+            console.log(chalk.green(`[import-old] Converted stub: ${file} -> ${safeName}.mp.json`));
+        }
+    }
+    // 4. Write tracked.mp.json
+    fs.writeFileSync(path.join(outputDir, "tracked.mp.json"), JSON.stringify(tracked, null, 2));
+    console.log(chalk.green(`Created tracked.mp.json with ${tracked.length} stubs.`));
+}
+
 const importCommand = new Command({
     name: "import",
     description: "Import a modpack from another format (currently only packwiz is supported).",
     arguments: [
-        { name: "format", aliases: [], description: "Format to import from (e.g. packwiz)", required: true }
+        { name: "format", aliases: [], description: "Format to import from (e.g. packwiz, old)", required: true }
     ],
     flags: [
         { name: "input", aliases: ["i"], description: "Input directory (packwiz project root)", takesValue: true },
-        { name: "output", aliases: ["o"], description: "Output directory (minepack project root)", takesValue: true }
+        { name: "output", aliases: ["o"], description: "Output directory (minepack project root)", takesValue: true },
+        { name: "old", aliases: [], description: "Import from old Minepack pack.json format", takesValue: false }
     ],
     examples: [
-        { description: "Import a packwiz pack", usage: "minepack import packwiz --input ./packwizpack --output ./minepackproject" }
+        { description: "Import a packwiz pack", usage: "minepack import packwiz --input ./packwizpack --output ./minepackproject" },
+        { description: "Import an old Minepack project", usage: "minepack import old --input ./oldminepack --output ./minepackproject" }
     ],
     async execute(args, flags) {
+        if (args.format === "old") {
+            const inputDir = typeof flags.input === 'string' ? path.resolve(flags.input) : process.cwd();
+            const outputDir = typeof flags.output === 'string' ? path.resolve(flags.output) : process.cwd();
+            await importOldMinepack(inputDir, outputDir);
+            return;
+        }
         if (args.format !== "packwiz") {
-            console.log(chalk.red("Only 'packwiz' import is currently supported."));
+            console.log(chalk.red("Only 'packwiz' and 'old' import formats are currently supported."));
             return;
         }
         const inputDir = typeof flags.input === 'string' ? path.resolve(flags.input) : process.cwd();
