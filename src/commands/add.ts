@@ -88,13 +88,13 @@ const addCommand = new Command({
         }
     ],
     async execute(args, flags) {
-        const packJsonPath = path.resolve(process.cwd(), "pack.json");
+        const packJsonPath = path.resolve(process.cwd(), "pack.mp.json");
         if (!fs.existsSync(packJsonPath)) {
-            console.log(chalk.red("No pack.json found in the current directory. Please run this command from your pack root."));
+            console.log(chalk.red("No pack.mp.json found in the current directory. Please run this command from your pack root."));
             return;
         }
         const packJson = JSON.parse(fs.readFileSync(packJsonPath, "utf-8"));
-        console.log(chalk.gray(`[info] Loaded pack.json: version=${packJson.gameversion}, modloader=${packJson.modloader?.name}`));
+        console.log(chalk.gray(`[info] Loaded pack.mp.json: version=${packJson.gameversion}, modloader=${packJson.modloader?.name}`));
         const result = await addOrUpdateContent({
             input: args.mod,
             flags,

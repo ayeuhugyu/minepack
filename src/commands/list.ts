@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import chalk from "chalk";
 import { Command, registerCommand } from "../lib/command";
 import { ModSide, type ModData } from "../lib/mod";
+import { STUB_EXT, getContentFolders, getStubFilesFromTracked } from "../lib/packUtils";
 
 function getModsDir() {
     const modsDir = path.resolve(process.cwd(), "mods");
@@ -14,32 +15,34 @@ function getModsDir() {
 
 function readAllMods(): ModData[] {
     const modsDir = getModsDir();
-    const files = fs.readdirSync(modsDir).filter(f => f.endsWith(".json"));
+    const files = fs.readdirSync(modsDir).filter(f => f.endsWith(STUB_EXT));
     return files.map(f => {
         const data = JSON.parse(fs.readFileSync(path.join(modsDir, f), "utf-8"));
         return { ...data, _filename: f };
     });
 }
 
-function getContentFolders() {
-    return ["mods", "resourcepacks", "shaderpacks", "datapacks", "plugins"];
-}
-
 function readAllContent() {
-    const folders = getContentFolders();
+    // Use tracked.mp.json for stubs
+    const rootDir = process.cwd();
+    const stubFiles = getStubFilesFromTracked(rootDir);
     let all: Array<{ type: string, name: string, filename: string, side?: string, download?: any, fileSize?: number, _folder: string, _isStub: boolean }> = [];
+    for (const stubRelPath of stubFiles) {
+        const absPath = path.join(rootDir, stubRelPath);
+        if (!fs.existsSync(absPath)) continue;
+        try {
+            const data = JSON.parse(fs.readFileSync(absPath, "utf-8"));
+            const folder = stubRelPath.split(path.sep)[0];
+            all.push({ ...data, _folder: folder, _isStub: true, filename: data.filename || path.basename(stubRelPath) });
+        } catch {}
+    }
+    const folders = getContentFolders();
     for (const folder of folders) {
         const dir = path.resolve(process.cwd(), folder);
         if (!fs.existsSync(dir)) continue;
         for (const file of fs.readdirSync(dir)) {
             const ext = path.extname(file).toLowerCase();
-            if (ext === ".json") {
-                try {
-                    const data = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8"));
-                    all.push({ ...data, _folder: folder, _isStub: true, filename: data.filename || file });
-                } catch {}
-            } else if ([".jar", ".zip", ".mcpack", ".datapack", ".litemod"].includes(ext)) {
-                // Directly downloaded file
+            if ([".jar", ".zip", ".mcpack", ".datapack", ".litemod"].includes(ext)) {
                 all.push({
                     type: folder.slice(-1) === "s" ? folder.slice(0, -1) : folder, // crude type guess
                     name: file,

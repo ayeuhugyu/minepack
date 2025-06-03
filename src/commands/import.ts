@@ -15,7 +15,7 @@ async function importPackwiz(inputDir: string, outputDir: string) {
     }
     // Parse pack.toml
     const packToml = toml.parse(fs.readFileSync(packTomlPath, "utf-8"));
-    // Build pack.json
+    // Build pack.mp.json
     const packJson: any = {
         name: packToml.name,
         author: packToml.author,
@@ -23,10 +23,9 @@ async function importPackwiz(inputDir: string, outputDir: string) {
         gameversion: packToml.versions?.minecraft,
         modloader: packToml.versions?.fabric ? { name: "fabric", version: packToml.versions.fabric } : undefined
     };
-    // Write pack.json
-    fs.mkdirSync(outputDir, { recursive: true });
-    fs.writeFileSync(path.join(outputDir, "pack.json"), JSON.stringify(packJson, null, 4));
-    console.log(chalk.green(`Created pack.json from pack.toml in ${outputDir}`));
+    // Write pack.mp.json
+    fs.writeFileSync(path.join(outputDir, "pack.mp.json"), JSON.stringify(packJson, null, 4));
+    console.log(chalk.green(`Created pack.mp.json from pack.toml in ${outputDir}`));
 
     // Import content from all supported folders (mods, resourcepacks, shaderpacks, datapacks, plugins)
     const contentFolders = ["mods", "resourcepacks", "shaderpacks", "datapacks", "plugins"];

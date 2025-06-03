@@ -2,6 +2,7 @@ import chalk from "chalk";
 import path from "path";
 import fs from "fs-extra";
 import { ModSide, ContentType, modrinthTypeToContentType, contentTypeToFolder } from "./mod";
+import { STUB_EXT, addStubToTracked } from "./packUtils";
 
 const MODRINTH_API = "https://api.modrinth.com/v2";
 
@@ -33,7 +34,7 @@ async function getModrinthFileCdnUrl(version: any) {
  * @param {object} opts - Options for the operation
  * @param {string} opts.input - Modrinth URL, ID, search term, or direct URL
  * @param {object} opts.flags - CLI flags (download, side, url, name, filename, hash, hash-format, type)
- * @param {object} opts.packMeta - The pack.json metadata
+ * @param {object} opts.packMeta - The pack.mp.json metadata
  * @param {boolean} [opts.interactive=true] - Whether to prompt user for ambiguous cases
  * @param {function} [opts.onPrompt] - Optional callback for user prompts (for update command)
  * @returns {Promise<object>} - Result object with status, messages, and file info
@@ -95,7 +96,7 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
             });
             let stats = { size: 0 };
             try { stats = fs.statSync(filePath); } catch {}
-            const stubPath = path.join(outDir, sanitize(filename) + ".json");
+            const stubPath = path.join(outDir, sanitize(filename) + STUB_EXT);
             if (verbose) console.log(chalk.gray(`[info] Writing stub to ${stubPath}`));
             fs.writeFileSync(stubPath, JSON.stringify({
                 type: contentType,
@@ -105,6 +106,7 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
                 download: { url, 'hash-format': '', hash: '' },
                 fileSize: stats.size || 0
             }, null, 4));
+            addStubToTracked(process.cwd(), path.relative(process.cwd(), stubPath));
             if (verbose) console.log(chalk.green(`[info] Downloaded file to ${filePath}`));
             return { status: 'success', message: `Downloaded file to ${filePath}` };
         }
@@ -150,9 +152,10 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
             if (verbose) console.log(chalk.green(`[info] Downloaded file to ${filePath}`));
             return { status: 'success', message: `Downloaded file to ${filePath}` };
         } else {
-            const stubPath = path.join(outDir, sanitize(modData.name ?? "content") + ".json");
+            const stubPath = path.join(outDir, sanitize(modData.name ?? "content") + STUB_EXT);
             if (verbose) console.log(chalk.gray(`[info] Writing stub to ${stubPath}`));
             fs.writeFileSync(stubPath, JSON.stringify(modData, null, 4));
+            addStubToTracked(process.cwd(), path.relative(process.cwd(), stubPath));
             if (verbose) console.log(chalk.green(`[info] Created stub at ${stubPath}`));
             return { status: 'success', message: `Created stub at ${stubPath}` };
         }
@@ -319,40 +322,13 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
         update,
         fileSize: 0 // default
     };
-    if (typeof filename === 'string' && folder) {
-        const checkDir = path.resolve(process.cwd(), folder);
-        const maybeFile = path.join(checkDir, filename);
-        if (fs.existsSync(maybeFile)) {
-            modData.fileSize = fs.statSync(maybeFile).size;
-        }
-    }
-    if (!fs.existsSync(outDir)) {
-        if (verbose) console.log(chalk.gray(`[info] Creating ${folder} directory at ${outDir}`));
-        fs.mkdirSync(outDir, { recursive: true });
-    }
-    if (flags.download) {
-        if (verbose) console.log(chalk.gray(`[info] Downloading file from Modrinth CDN: ${cdnUrl}`));
-        const res = await fetch(cdnUrl);
-        const filePath = path.join(outDir, filename ?? "file.bin");
-        const fileStream = fs.createWriteStream(filePath);
-        if (!res.body) throw new Error("Response body is null");
-        await new Promise<void>(async (resolve, reject) => {
-            if (!res.body) {
-                reject(new Error("Response body is null"));
-                return;
-            }
-            const { Readable } = await import("stream");
-            Readable.fromWeb(res.body as any).pipe(fileStream);
-            fileStream.on("error", reject);
-            fileStream.on("finish", resolve);
-        });
-        if (verbose) console.log(chalk.green(`[info] Downloaded file to ${filePath}`));
-        return { status: 'success', message: `Downloaded file to ${filePath}` };
-    } else {
-        const stubPath = path.join(outDir, sanitize(name || "content") + ".json");
-        if (verbose) console.log(chalk.gray(`[info] Writing stub to ${stubPath}`));
-        fs.writeFileSync(stubPath, JSON.stringify(modData, null, 4));
-        if (verbose) console.log(chalk.green(`[info] Created stub at ${stubPath}`));
-        return { status: 'success', message: `Created stub at ${stubPath}` };
-    }
+    if (verbose) console.log(chalk.gray(`[info] Final mod data: ${JSON.stringify(modData, null, 2)}`));
+
+    // Write stub file
+    const stubPath = path.join(outDir, sanitize(modData.name) + STUB_EXT);
+    if (verbose) console.log(chalk.gray(`[info] Writing stub to ${stubPath}`));
+    fs.writeFileSync(stubPath, JSON.stringify(modData, null, 4));
+    addStubToTracked(process.cwd(), path.relative(process.cwd(), stubPath));
+    if (verbose) console.log(chalk.green(`[info] Created stub at ${stubPath}`));
+    return { status: 'success', message: `Created stub at ${stubPath}` };
 }

@@ -4,14 +4,9 @@ import chalk from "chalk";
 import { Command, registerCommand } from "../lib/command";
 import { ContentType } from "../lib/mod";
 import { execSync } from "child_process";
+import { STUB_EXT, getContentFolders, getStubFilesFromTracked } from "../lib/packUtils";
 
-const SUPPORTED_FOLDERS = [
-    "mods",
-    "resourcepacks",
-    "shaderpacks",
-    "datapacks",
-    "plugins"
-];
+const SUPPORTED_FOLDERS = getContentFolders();
 
 async function collectContent() {
     const mods: any[] = [];
@@ -19,7 +14,7 @@ async function collectContent() {
         const dir = path.resolve(process.cwd(), folder);
         if (!fs.existsSync(dir)) continue;
         for (const file of fs.readdirSync(dir)) {
-            if (file.endsWith('.json')) {
+            if (file.endsWith(STUB_EXT)) {
                 const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8'));
                 mods.push({ ...data, _folder: folder, _filename: file, _fullpath: path.join(dir, file) });
             }
@@ -29,14 +24,14 @@ async function collectContent() {
 }
 
 async function collectOverrides(exportDir: string, modJsonFiles: Set<string>) {
-    // Copy everything except .json stubs into overrides
+    // Copy everything except .mp.json stubs into overrides
     const overridesDir = path.join(exportDir, "overrides");
     fs.mkdirSync(overridesDir, { recursive: true });
     for (const folder of SUPPORTED_FOLDERS) {
         const dir = path.resolve(process.cwd(), folder);
         if (!fs.existsSync(dir)) continue;
         for (const file of fs.readdirSync(dir)) {
-            if (file.endsWith('.json') || file.endsWith('.mrpack')) continue; // skip stubs and .mrpack files
+            if (file.endsWith(STUB_EXT) || file.endsWith('.mrpack')) continue; // skip stubs and .mrpack files
             const full = path.join(dir, file);
             // Copy everything else
             const destFolder = path.join(overridesDir, folder);
@@ -45,9 +40,9 @@ async function collectOverrides(exportDir: string, modJsonFiles: Set<string>) {
             console.log(chalk.gray(`[info] Copied to overrides: ${folder}/${file}`));
         }
     }
-    // Copy any other folders/files except .json stubs, .mrpack files, and pack.json
+    // Copy any other folders/files except .mp.json stubs, .mrpack files, and pack.mp.json
     for (const entry of fs.readdirSync(process.cwd())) {
-        if (SUPPORTED_FOLDERS.includes(entry) || entry === "pack.json" || entry === ".export" || entry.endsWith('.mrpack')) continue;
+        if (SUPPORTED_FOLDERS.includes(entry) || entry === "pack.mp.json" || entry === ".export" || entry.endsWith('.mrpack')) continue;
         const full = path.join(process.cwd(), entry);
         fs.copySync(full, path.join(overridesDir, entry));
         console.log(chalk.gray(`[info] Copied to overrides: ${entry}`));
@@ -80,13 +75,13 @@ const exportCommand = new Command({
         fs.mkdirSync(exportDir);
         console.log(chalk.gray(`[info] Created export working directory at ${exportDir}`));
 
-        // Read pack.json for meta
-        const packJsonPath = path.resolve(process.cwd(), "pack.json");
+        // Read pack.mp.json for meta
+        const packJsonPath = path.resolve(process.cwd(), "pack.mp.json");
         if (!fs.existsSync(packJsonPath)) {
-            console.log(chalk.red("No pack.json found in the current directory."));
+            console.log(chalk.red("No pack.mp.json found in the current directory."));
             return;
         }
-        const packMeta = JSON.parse(fs.readFileSync(packJsonPath, "utf-8"));
+        const packJson = JSON.parse(fs.readFileSync(packJsonPath, "utf-8"));
 
         // Collect all mod/content stubs
         // const side = flags.side as string | undefined;
@@ -102,20 +97,20 @@ const exportCommand = new Command({
         const index: any = {
             formatVersion: 1,
             game: "minecraft",
-            versionId: packMeta.version,
-            name: packMeta.name,
-            summary: packMeta.description || packMeta.name,
+            versionId: packJson.version,
+            name: packJson.name,
+            summary: packJson.description || packJson.name,
             files: [],
             dependencies: {},
         };
-        if (packMeta.author) index.author = packMeta.author;
-        if (packMeta.gameversion) index.dependencies.minecraft = packMeta.gameversion;
-        if (packMeta.modloader) {
+        if (packJson.author) index.author = packJson.author;
+        if (packJson.gameversion) index.dependencies.minecraft = packJson.gameversion;
+        if (packJson.modloader) {
             // Map loader names for Modrinth compatibility
-            let loaderName = packMeta.modloader.name;
+            let loaderName = packJson.modloader.name;
             if (loaderName === "fabric") loaderName = "fabric-loader";
             if (loaderName === "quilt") loaderName = "quilt-loader";
-            index.dependencies[loaderName] = packMeta.modloader.version;
+            index.dependencies[loaderName] = packJson.modloader.version;
         }
 
         for (const mod of mods) {
@@ -194,7 +189,7 @@ const exportCommand = new Command({
         console.log(chalk.green(`[info] Copied overrides folder.`));
 
         // Zip and rename
-        const zipPath = path.resolve(process.cwd(), `${packMeta.name.replace(/\s+/g, "_")}-${packMeta.version}.mrpack`);
+        const zipPath = path.resolve(process.cwd(), `${packJson.name.replace(/\s+/g, "_")}-${packJson.version}.mrpack`);
         let zipped = false;
         let zipError = null;
         // Cross-platform zipping

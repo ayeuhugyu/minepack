@@ -3,26 +3,26 @@ import path from "path";
 import fs from "fs-extra";
 import { Command, registerCommand } from "../lib/command";
 import { addOrUpdateContent } from "../lib/addOrUpdate";
-import { contentTypeToFolder } from "../lib/mod";
+import { removeStubFromTracked, STUB_EXT, getContentFolders, getStubFilesFromTracked } from "../lib/packUtils";
 
 const updateCommand = new Command({
     name: "update",
-    description: "Update all mods and content in your pack to the latest version for the current Minecraft version and modloader. This may change mod versions and loader compatibility if your pack.json has changed. If a mod cannot be updated, you will be prompted to ignore or remove it.",
+    description: "Update all mods and content in your pack to the latest version for the current Minecraft version and modloader. This may change mod versions and loader compatibility if your pack.mp.json has changed. If a mod cannot be updated, you will be prompted to ignore or remove it.",
     async execute() {
-        const packJsonPath = path.resolve(process.cwd(), "pack.json");
+        const packJsonPath = path.resolve(process.cwd(), "pack.mp.json");
         if (!fs.existsSync(packJsonPath)) {
-            console.log(chalk.red("No pack.json found in the current directory. Please run this command from your pack root."));
+            console.log(chalk.red("No pack.mp.json found in the current directory. Please run this command from your pack root."));
             return;
         }
         const packJson = JSON.parse(fs.readFileSync(packJsonPath, "utf-8"));
         // Find all .json stubs in all content folders
-        const folders = ["mods", "resourcepacks", "shaderpacks", "datapacks", "plugins"];
+        const folders = getContentFolders();
         let stubs: { file: string, data: any, folder: string }[] = [];
         for (const folder of folders) {
             const dir = path.resolve(process.cwd(), folder);
             if (!fs.existsSync(dir)) continue;
             for (const file of fs.readdirSync(dir)) {
-                if (file.endsWith(".json")) {
+                if (file.endsWith(STUB_EXT)) {
                     try {
                         const data = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8"));
                         stubs.push({ file: path.join(dir, file), data, folder });
@@ -67,6 +67,9 @@ const updateCommand = new Command({
             });
             if (result.status === 'remove') {
                 fs.unlinkSync(file);
+                if (file.endsWith(STUB_EXT)) {
+                    removeStubFromTracked(process.cwd(), path.relative(process.cwd(), file));
+                }
                 console.log(chalk.red(`[removed] ${file}`));
             } else if (result.status === 'skipped') {
                 console.log(chalk.yellow(`[skipped] ${file}`));

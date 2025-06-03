@@ -24,7 +24,7 @@ const initCommand = new Command({
         {
             name: "force",
             aliases: ["f"],
-            description: "Force re-initialization even if pack.json exists.",
+            description: "Force re-initialization even if pack.mp.json exists.",
             takesValue: false
         },
         {
@@ -63,10 +63,10 @@ const initCommand = new Command({
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        // === Detect existing pack.json ===
-        const packJsonPath = path.join(dir, 'pack.json');
+        // === Detect existing pack.mp.json ===
+        const packJsonPath = path.join(dir, 'pack.mp.json');
         if (fs.existsSync(packJsonPath) && !flags.force) {
-            console.log(chalk.red("A pack.json already exists in this directory. Use --force to re-initialize."));
+            console.log(chalk.red("A pack.mp.json already exists in this directory. Use --force to re-initialize."));
             return;
         }
 
@@ -80,8 +80,8 @@ const initCommand = new Command({
                 console.log(chalk.red('Aborting initialization.'));
                 return;
             } catch (e) {
-                // If error, allow to continue (corrupt or not a Minepack pack.json)
-                console.log(chalk.yellow('Existing pack.json is invalid or not a Minepack project. Continuing...'));
+                // If error, allow to continue (corrupt or not a Minepack pack.mp.json)
+                console.log(chalk.yellow('Existing pack.mp.json is invalid or not a Minepack project. Continuing...'));
             }
         }
 
@@ -118,19 +118,18 @@ const initCommand = new Command({
 
         await rl.close();
 
-        // === Write pack.json ===
-        const packMeta = new PackMeta({
+        // === Write pack.mp.json ===
+        const packJson = {
             name,
             version,
             author,
             gameversion,
             modloader: {
-                name: modloaderName as import("../lib/pack").ModLoader,
+                name: modloaderName,
                 version: modloaderVersion
             }
-        });
-
-        fs.writeFileSync(packJsonPath, JSON.stringify(packMeta, null, 4));
+        };
+        fs.writeFileSync(packJsonPath, JSON.stringify(packJson, null, 4));
         console.log(chalk.green(`Created ${packJsonPath}`));
 
         // Create mods directory if not exists

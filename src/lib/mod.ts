@@ -186,3 +186,4 @@ export function findMod(mods: (ModData & { _filename?: string })[], userInput: s
     console.log(chalk.gray(`[info] No matches found.`));
     return { mod: null, matches: [], fuzzy: false };
 }
+

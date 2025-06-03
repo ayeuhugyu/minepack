@@ -3,10 +3,7 @@ import fs from "fs-extra";
 import chalk from "chalk";
 import { Command, registerCommand } from "../lib/command";
 import { findMod, type ModData } from "../lib/mod";
-
-function getContentFolders() {
-    return ["mods", "resourcepacks", "shaderpacks", "datapacks", "plugins"];
-}
+import { removeStubFromTracked, STUB_EXT, getContentFolders, getStubFilesFromTracked } from "../lib/packUtils";
 
 function getModsDir() {
     const modsDir = path.resolve(process.cwd(), "mods");
@@ -23,7 +20,7 @@ function readAllContent(includeJars = false): (ModData & { _filename?: string, _
         const dir = path.resolve(process.cwd(), folder);
         if (!fs.existsSync(dir)) continue;
         for (const file of fs.readdirSync(dir)) {
-            if (file.endsWith(".json")) {
+            if (file.endsWith(STUB_EXT)) {
                 const data = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8"));
                 all.push({ ...data, _filename: file, _folder: folder });
             } else if (includeJars && file.endsWith(".jar")) {
@@ -66,31 +63,44 @@ const removeCommand = new Command({
         { description: "Remove a mod by url", usage: "minepack remove https://cdn.modrinth.com/data/AANobbMI/versions/OihdIimA/sodium-fabric-0.5.13%2Bmc1.20.1.jar" }
     ],
     async execute(args) {
-        const content = readAllContent();
         const userInput = args.mod as string;
-        console.log(chalk.gray(`[info] Loaded ${content.length} content stubs from all folders`));
-        // First search: only stubs (JSON files)
-        let result = findMod(content, userInput);
+        const rootDir = process.cwd();
+        const folders = getContentFolders();
         let toRemove = null;
         let searchStage = 'stubs';
-        if (result.mod) {
-            console.log(chalk.gray(`[info] Exact match found in stubs: ${result.mod.name || result.mod._filename} [${result.mod._folder}]`));
-            toRemove = result.mod;
-        } else if (result.fuzzy && result.matches.length) {
-            console.log(chalk.yellow("No exact match found in stubs. Top 5 fuzzy matches:"));
-            result.matches.forEach((m, i) => {
-                console.log(`  [${i + 1}] ${m.name || m._filename} [${m._folder}]`);
-            });
-            const readline = await import('readline/promises');
-            const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-            let idx = parseInt(await rl.question('Select content to remove [number, or 0 to cancel]: '), 10) - 1;
-            if (idx >= 0 && idx < result.matches.length) {
-                toRemove = result.matches[idx];
-                console.log(chalk.gray(`[info] User selected: ${toRemove.name || toRemove._filename} [${toRemove._folder}]`));
-            } else {
-                console.log(chalk.gray("No content selected."));
+        // Try exact stub file match first
+        for (const folder of folders) {
+            const stubPath = path.join(rootDir, folder, userInput + STUB_EXT);
+            if (fs.existsSync(stubPath)) {
+                try {
+                    const data = JSON.parse(fs.readFileSync(stubPath, "utf-8"));
+                    toRemove = { ...data, _filename: userInput + STUB_EXT, _folder: folder };
+                    break;
+                } catch {}
             }
-            await rl.close();
+        }
+        let result = null;
+        if (!toRemove) {
+            const content = readAllContent();
+            result = findMod(content, userInput);
+            if (result.mod) {
+                toRemove = result.mod;
+            } else if (result.fuzzy && result.matches.length) {
+                console.log(chalk.yellow("No exact match found in stubs. Top 5 fuzzy matches:"));
+                result.matches.forEach((m, i) => {
+                    console.log(`  [${i + 1}] ${m.name || m._filename} [${m._folder}]`);
+                });
+                const readline = await import('readline/promises');
+                const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+                let idx = parseInt(await rl.question('Select content to remove [number, or 0 to cancel]: '), 10) - 1;
+                if (idx >= 0 && idx < result.matches.length) {
+                    toRemove = result.matches[idx];
+                    console.log(chalk.gray(`[info] User selected: ${toRemove.name || toRemove._filename} [${toRemove._folder}]`));
+                } else {
+                    console.log(chalk.gray("No content selected."));
+                }
+                await rl.close();
+            }
         }
         // If not found in stubs, search for .jar files by filename
         if (!toRemove) {
@@ -138,6 +148,9 @@ const removeCommand = new Command({
             const dir = path.resolve(process.cwd(), toRemove._folder);
             const filePath = path.join(dir, toRemove._filename);
             fs.unlinkSync(filePath);
+            if (toRemove._filename.endsWith(STUB_EXT)) {
+                removeStubFromTracked(process.cwd(), path.relative(process.cwd(), filePath));
+            }
             console.log(chalk.green(`Removed: ${toRemove._filename} [${toRemove._folder}] (${searchStage === 'jar' ? '.jar file' : 'stub'})`));
         } else if (!toRemove) {
             console.log(chalk.red("No content found matching that input (in stubs or .jar files)."));
