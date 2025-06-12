@@ -57,8 +57,11 @@ export interface ContentData {
     side?: ModSide;
     download: {
         url: string;
-        'hash-format': HashFormat | string;
-        hash: string;
+    };
+    hashes: {
+        sha1: string;
+        sha256: string;
+        [key: string]: string;
     };
     update?: {
         'mod-id'?: string;
@@ -81,8 +84,11 @@ export class Content {
     side: ModSide;
     download: {
         url: string;
-        hashFormat: HashFormat | string;
-        hash: string;
+    };
+    hashes: {
+        sha1: string;
+        sha256: string;
+        [key: string]: string;
     };
     update?: {
         modId?: string;
@@ -97,10 +103,9 @@ export class Content {
         this.filename = data.filename;
         this.side = data.side || ModSide.Both;
         this.download = {
-            url: data.download.url,
-            hashFormat: data.download['hash-format'] as HashFormat,
-            hash: data.download.hash
+            url: data.download.url
         };
+        this.hashes = { ...data.hashes };
         if (data.update) {
             this.update = {
                 modId: data.update['mod-id'],

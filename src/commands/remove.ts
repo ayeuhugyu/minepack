@@ -22,7 +22,11 @@ function readAllContent(includeJars = false): (ModData & { _filename?: string, _
         for (const file of fs.readdirSync(dir)) {
             if (file.endsWith(STUB_EXT)) {
                 const data = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8"));
-                all.push({ ...data, _filename: file, _folder: folder });
+                // Always ensure hashes object with sha1 and sha256
+                let hashes = data.hashes || {};
+                if (!hashes.sha1) hashes.sha1 = "";
+                if (!hashes.sha256) hashes.sha256 = "";
+                all.push({ ...data, hashes, _filename: file, _folder: folder });
             } else if (includeJars && file.endsWith(".jar")) {
                 // Guess ContentType from folder
                 let typeEnum = "mod";
@@ -40,8 +44,9 @@ function readAllContent(includeJars = false): (ModData & { _filename?: string, _
                     name: file,
                     filename: file,
                     type: typeEnum as any,
-                    download: { url: '', 'hash-format': '', hash: '' },
-                    fileSize: fs.statSync(path.join(dir, file)).size
+                    download: { url: '' },
+                    hashes: { sha1: "", sha256: "" },
+                    fileSize: fs.statSync(path.join(dir, file)).size,
                 });
             }
         }

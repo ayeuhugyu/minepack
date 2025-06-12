@@ -115,9 +115,11 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
         modData.name = (flags.name as string) || modInput;
         modData.filename = (flags.filename as string) || path.basename(url);
         modData.download = {
-            url: url,
-            'hash-format': (flags["hash-format"] as string) || "sha1",
-            hash: (flags.hash as string) || ""
+            url: url
+        };
+        modData.hashes = {
+            sha1: flags.hash || "",
+            sha256: flags.sha256 || ""
         };
         modData.side = side;
         const maybeFile = path.join(outDir, modData.filename);
@@ -316,12 +318,12 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
         name: name || "Unknown Content",
         filename: filename as string,
         side,
+        hashes: {
+            ...(hash ? { sha1: hash } : {}),
+            ...(hashSha256 ? { sha256: hashSha256 } : {})
+        },
         download: {
-            url: cdnUrl,
-            'hash-format': hashFormat,
-            hash: hash || "",
-            sha256: hashSha256,
-            sha1: hash
+            url: cdnUrl
         },
         update,
         fileSize: 0 // default

@@ -141,9 +141,9 @@ const exportCommand = new Command({
                 index.files.push({
                     path: `${mod._folder}/${mod.filename}`,
                     hashes: {
-                        ...(mod.download.sha1 ? { sha1: mod.download.sha1 } : {}),
-                        ...(mod.download.sha256 ? { sha256: mod.download.sha256 } : {}),
-                        ...(mod.download.hash && mod.download["hash-format"] && !["sha1","sha256"].includes(mod.download["hash-format"]) ? { [mod.download["hash-format"]]: mod.download.hash } : {})
+                        sha1: mod.hashes?.sha1 || "",
+                        sha256: mod.hashes?.sha256 || "",
+                        ...Object.fromEntries(Object.entries(mod.hashes || {}).filter(([k]) => !["sha1","sha256"].includes(k)))
                     },
                     env: { client: "required", server: "required" },
                     downloads: [], // forcibly downloaded, so no download url
@@ -174,9 +174,9 @@ const exportCommand = new Command({
                 index.files.push({
                     path: `${mod._folder}/${mod.filename}`,
                     hashes: {
-                        ...(mod.download.sha1 ? { sha1: mod.download.sha1 } : {}),
-                        ...(mod.download.sha256 ? { sha256: mod.download.sha256 } : {}),
-                        ...(mod.download.hash && mod.download["hash-format"] && !["sha1","sha256"].includes(mod.download["hash-format"]) ? { [mod.download["hash-format"]]: mod.download.hash } : {})
+                        sha1: mod.hashes?.sha1 || "",
+                        sha256: mod.hashes?.sha256 || "",
+                        ...Object.fromEntries(Object.entries(mod.hashes || {}).filter(([k]) => !["sha1","sha256"].includes(k)))
                     },
                     env: {
                         client: envClient,
