@@ -140,7 +140,11 @@ const exportCommand = new Command({
                 console.log(chalk.green(`[info] Downloaded and added to overrides: ${overridesModPath} (${fileSize} bytes)`));
                 index.files.push({
                     path: `${mod._folder}/${mod.filename}`,
-                    hashes: mod.download.hash ? { [mod.download["hash-format"] || "sha1"]: mod.download.hash } : {},
+                    hashes: {
+                        ...(mod.download.sha1 ? { sha1: mod.download.sha1 } : {}),
+                        ...(mod.download.sha256 ? { sha256: mod.download.sha256 } : {}),
+                        ...(mod.download.hash && mod.download["hash-format"] && !["sha1","sha256"].includes(mod.download["hash-format"]) ? { [mod.download["hash-format"]]: mod.download.hash } : {})
+                    },
                     env: { client: "required", server: "required" },
                     downloads: [], // forcibly downloaded, so no download url
                     fileSize
@@ -169,7 +173,11 @@ const exportCommand = new Command({
                 console.log(chalk.gray(`[info] Adding to index: ${mod._folder}/${mod.filename} (${fileSize} bytes, client: ${envClient}, server: ${envServer})`));
                 index.files.push({
                     path: `${mod._folder}/${mod.filename}`,
-                    hashes: mod.download.hash ? { [mod.download["hash-format"] || "sha1"]: mod.download.hash } : {},
+                    hashes: {
+                        ...(mod.download.sha1 ? { sha1: mod.download.sha1 } : {}),
+                        ...(mod.download.sha256 ? { sha256: mod.download.sha256 } : {}),
+                        ...(mod.download.hash && mod.download["hash-format"] && !["sha1","sha256"].includes(mod.download["hash-format"]) ? { [mod.download["hash-format"]]: mod.download.hash } : {})
+                    },
                     env: {
                         client: envClient,
                         server: envServer

@@ -303,7 +303,9 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
     }
     filename = modrinthVersion.files[0].filename ?? "file.bin";
     name = modrinthProject.title;
-    hash = modrinthVersion.files[0].hashes.sha1 || modrinthVersion.files[0].hashes.sha512 || modrinthVersion.files[0].hashes.sha256 || "";
+    hash = modrinthVersion.files[0].hashes.sha1 || "";
+    const hashSha256 = modrinthVersion.files[0].hashes.sha256 || "";
+    const hashSha512 = modrinthVersion.files[0].hashes.sha512 || "";
     hashFormat = hash
         ? (hash.length === 40 ? "sha1" : (hash.length === 128 ? "sha512" : "sha256"))
         : "";
@@ -317,7 +319,9 @@ export async function addOrUpdateContent({ input, flags, packMeta, interactive =
         download: {
             url: cdnUrl,
             'hash-format': hashFormat,
-            hash: hash || ""
+            hash: hash || "",
+            sha256: hashSha256,
+            sha1: hash
         },
         update,
         fileSize: 0 // default
