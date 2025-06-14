@@ -3,6 +3,8 @@ import type { CommandFlag, CommandContext, CommandDefinition } from "./lib/comma
 
 // Import commands; this needs to be done since the files won't run unless they're imported by something
 import "./commands/version";
+import "./commands/help";
+import "./commands/test";
 
 // Command line parser
 function parseArgs<Flags extends readonly CommandFlag[]>(argv: string[], command: { flags: Flags }): CommandContext<Flags> {
