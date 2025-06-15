@@ -1,10 +1,12 @@
 import { commands, registerCommand } from "./lib/command";
 import type { CommandFlag, CommandContext, CommandDefinition } from "./lib/command";
+import chalk from "chalk";
 
 // Import commands; this needs to be done since the files won't run unless they're imported by something
 import "./commands/version";
 import "./commands/help";
 import "./commands/test";
+import "./commands/init";
 
 // Command line parser
 function parseArgs<Flags extends readonly CommandFlag[]>(argv: string[], command: { flags: Flags }): CommandContext<Flags> {
@@ -75,14 +77,14 @@ function main() {
         c => c.name === cmdName || (c.aliases && c.aliases.includes(cmdName))
     );
     if (!command) {
-        console.error(`Unknown command: ${cmdName}; use \`minepack help\` to see available commands.`);
+        console.error(chalk.redBright.bold(` ✖  Unknown command: ${cmdName}; use \`minepack help\` to see available commands.`));
         process.exit(1);
     }
     try {
         const ctx = parseArgs(args, command);
         command.execute(ctx);
     } catch (err) {
-        console.error((err as Error).message);
+        console.error(chalk.redBright.bold((err as Error).message));
         process.exit(1);
     }
 }
