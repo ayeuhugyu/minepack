@@ -46,24 +46,24 @@ registerCommand({
         // Check if the directory already exists
         if (!fs.existsSync(path)) {
             fs.mkdirSync(path);
-            if (flags.verbose) console.log(chalk.gray(`Created directory: ${path}`));
+            if (flags.verbose) console.log(chalk.gray(`Created directory: ${chalk.yellowBright(path)}`));
         }
         if (Pack.isPack(path) && !flags.force) {
             console.error(chalk.redBright.bold(" ✖  This directory is already a minepack project. Pass --force to reinitialize it."));
             return;
         }
         if (Pack.isPack(path) && flags.force) {
-            console.log(chalk.yellowBright.bold(" ⚠ Reinitializing existing minepack project..."));
+            console.log(chalk.yellowBright.bold(" ⚠  Reinitializing existing minepack project..."));
         }
 
-        const name = await promptUser(chalk.blueBright("Pack name:") + chalk.reset())
-        const description = await promptUser(chalk.blueBright("Pack description:") + chalk.reset());
-        const author = await promptUser(chalk.blueBright("Author name:") + chalk.reset());
+        const name = await promptUser(chalk.blueBright.bold("Pack name:") + chalk.reset());
+        const description = await promptUser(chalk.blueBright.bold("Pack description:") + chalk.reset());
+        const author = await promptUser(chalk.blueBright.bold("Author name:") + chalk.reset());
         let gameversion: string;
         while (true) {
-            gameversion = await promptUser(chalk.blueBright("Game version (e.g. 1.20.1):") + chalk.reset());
+            gameversion = await promptUser(chalk.blueBright.bold("Game version ") + chalk.gray("(e.g. 1.20.1):") + chalk.reset());
             if (gameversion.split('.').every(part => /^\d+$/.test(part)) && gameversion.split('.').length === 3) {
-            break;
+                break;
             }
             console.error(chalk.redBright.bold(" ✖  Invalid game version format. Please use a format like 1.20.1."));
         }
@@ -76,11 +76,11 @@ registerCommand({
             "liteloader",
         ];
         const modloader = await selectFromList(
-            modloaderList.map(key => (chalk.greenBright(key))),
-            chalk.blueBright("Select a modloader:") + chalk.reset(),
+            modloaderList.map(key => chalk.greenBright(key)),
+            chalk.blueBright.bold("Select a modloader:") + chalk.reset(),
         );
 
-        const versionStatus = await statusMessage("Fetching latest modloader version...");
+        const versionStatus = await statusMessage(chalk.gray("Fetching latest modloader version..."));
         const loaderData = ModLoaders[modloaderList[modloader]];
         if (!loaderData) {
             console.error(chalk.redBright.bold(" ✖  Invalid modloader selected."));
@@ -95,14 +95,18 @@ registerCommand({
             }
         } catch (error: any) {
             versionStatus.update(
-                chalk.redBright.bold(" ✖  Failed to fetch modloader version:") +
-                error?.message || error
+                chalk.redBright.bold(" ✖  Failed to fetch modloader version: ") +
+                chalk.whiteBright(error?.message || error)
             );
             return;
         }
         versionStatus.done();
 
-        const userInputtedModloaderVersion = (await promptUser(chalk.blueBright(`Modloader version ${chalk.gray(`(leave blank to use ${chalk.yellowBright(loaderData.friendlyName)} ${chalk.yellowBright(modloaderVersion)})`)}:`) + chalk.reset())) || modloaderVersion;
+        const userInputtedModloaderVersion = (await promptUser(
+            chalk.blueBright.bold(`Modloader version `) +
+            chalk.gray(`(leave blank to use ${chalk.yellowBright(loaderData.friendlyName)} ${chalk.yellowBright(modloaderVersion)})`) +
+            ":" + chalk.reset()
+        )) || modloaderVersion;
 
         const pack: Pack = new Pack(
             name,
