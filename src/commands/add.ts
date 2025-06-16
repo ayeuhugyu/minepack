@@ -1,120 +1,124 @@
+import { registerCommand } from "../lib/command";
+import { findProject } from "../lib/modrinth/search";
+import { projectToStub } from "../lib/modrinth/projectToStub";
+import { Pack } from "../lib/pack";
+import { Stub } from "../lib/stub";
 import chalk from "chalk";
-import path from "path";
-import fs from "fs-extra";
-import { Command, registerCommand } from "../lib/command";
-import { addOrUpdateContent } from "../lib/addOrUpdate";
+import { promptUser, selectFromList, multiSelectFromList } from "../lib/util";
 
-const addCommand = new Command({
+registerCommand({
     name: "add",
-    description: "Add a mod to your modpack from Modrinth or a direct URL.",
-    arguments: [
+    aliases: ["addmod"],
+    description: "Add a mod (stub) to the current minepack project, with dependency resolution.",
+    options: [
         {
             name: "mod",
-            aliases: [],
-            description: "Modrinth URL, mod ID, or search term.",
-            required: true
+            description: "The mod name, slug, or ID to add.",
+            required: true,
+            exampleValues: ["sodium", "lithium", "modrinth-xyz123"],
         }
     ],
     flags: [
         {
-            name: "download",
-            aliases: ["D"],
-            description: "Download the mod jar directly instead of creating a .json stub.",
-            takesValue: false
-        },
-        {
-            name: "side",
-            aliases: ["s"],
-            description: "Which side to use this mod on (client/server/both)",
-            takesValue: true
-        },
-        {
-            name: "url",
-            aliases: [],
-            description: "Direct download URL (if not using Modrinth)",
-            takesValue: true
-        },
-        {
-            name: "name",
-            aliases: [],
-            description: "Name of the mod (if not using Modrinth)",
-            takesValue: true
-        },
-        {
-            name: "filename",
-            aliases: [],
-            description: "Filename for the mod (if not using Modrinth)",
-            takesValue: true
-        },
-        {
-            name: "hash",
-            aliases: [],
-            description: "Hash for the mod file (if not using Modrinth)",
-            takesValue: true
-        },
-        {
-            name: "hash-format",
-            aliases: [],
-            description: "Hash format (sha1, sha256, etc) (if not using Modrinth)",
-            takesValue: true
-        },
-        {
-            name: "type",
-            aliases: ["t"],
-            description: "Content type (mod/resourcepack/datapack) (if not using Modrinth)",
-            takesValue: true
+            name: "verbose",
+            description: "Enable verbose output.",
+            short: "v",
+            takesValue: false,
         }
     ],
-    examples: [
-        {
-            description: "Add a mod by Modrinth URL",
-            usage: "minepack add https://modrinth.com/mod/iris"
-        },
-        {
-            description: "Add a mod by Modrinth ID",
-            usage: "minepack add P7dR8mSH"
-        },
-        {
-            description: "Add a mod by search term",
-            usage: "minepack add sodium"
-        },
-        {
-            description: "Add a mod by direct URL and specify all data",
-            usage: "minepack add --url https://cdn.example.com/mod.jar --name MyMod --filename mod.jar --hash abc123 --hash-format sha1"
-        },
-        {
-            description: "Add a mod and download the jar",
-            usage: "minepack add sodium --download"
-        }
+    exampleUsage: [
+        "minepack add sodium",
+        "minepack add lithium --verbose"
     ],
-    async execute(args, flags) {
-        const packJsonPath = path.resolve(process.cwd(), "pack.mp.json");
-        if (!fs.existsSync(packJsonPath)) {
-            console.log(chalk.red("No pack.mp.json found in the current directory. Please run this command from your pack root."));
+    execute: async ({ flags, options }) => {
+        const modQuery = options.join(" ").trim();
+        if (!modQuery) {
+            console.error(chalk.redBright.bold(" ✖  Please provide a mod to add."));
             return;
         }
-        const packJson = JSON.parse(fs.readFileSync(packJsonPath, "utf-8"));
-        console.log(chalk.gray(`[info] Loaded pack.mp.json: version=${packJson.gameversion}, modloader=${packJson.modloader?.name}`));
-        const result = await addOrUpdateContent({
-            input: args.mod,
-            flags,
-            packMeta: packJson,
-            interactive: true,
-            verbose: true,
-            sanitizeName: true
-        });
-        if (result && result.message) {
-            if (result.status === 'success') {
-                console.log(chalk.green(result.message));
-            } else if (result.status === 'notfound') {
-                console.log(chalk.red(result.message));
-            } else {
-                console.log(chalk.yellow(result.message));
+        const cwd = process.cwd();
+        const pack = Pack.parse(cwd);
+        if (!pack) {
+            console.error(chalk.redBright.bold(" ✖  Not a minepack project directory."));
+            return;
+        }
+        const verbose = !!flags.verbose;
+        const existingStubs = pack.getStubs(verbose);
+        // Search for the mod
+        const project = await findProject(modQuery, pack, verbose);
+        if (!project) {
+            console.error(chalk.redBright.bold(" ✖  Could not find a matching mod on Modrinth."));
+            return;
+        }
+        if (existingStubs.some(stub => stub.projectId === project.id || stub.slug === project.slug)) {
+            console.log(chalk.yellowBright.bold(` ⚠  Mod '${project.slug}' is already added to this pack.`));
+            return;
+        }
+        // Create stub and write it
+        let stub;
+        try {
+            stub = await projectToStub(project, pack);
+        } catch (err: any) {
+            console.error(chalk.redBright.bold(` ✖  Failed to create stub: ${err.message}`));
+            return;
+        }
+        stub.write(cwd, verbose);
+        console.log(chalk.greenBright.bold(` ✔  Added '${project.title}' (${project.slug}) to the pack!`));
+        // Handle dependencies
+        if (stub.dependencies && stub.dependencies.length > 0) {
+            // Filter out already present dependencies
+            const missingDeps = stub.dependencies.filter(depId => !existingStubs.some(stub => stub.projectId === depId || stub.slug === depId));
+            if (missingDeps.length > 0) {
+                // Get project info for each dependency (if possible)
+                const depProjects = [];
+                for (const depId of missingDeps) {
+                    const depProject = await findProject(depId, pack, verbose);
+                    depProjects.push({ depId, depProject });
+                }
+                // List dependencies to user
+                console.log(chalk.yellowBright.bold("The following dependencies were found:"));
+                depProjects.forEach(({ depId, depProject }, idx) => {
+                    if (depProject) {
+                        console.log(`  ${chalk.gray(idx + 1 + ".")} ${chalk.bold(depProject.title)} (${chalk.yellowBright(depProject.slug)})`);
+                    } else {
+                        console.log(`  ${chalk.gray(idx + 1 + ".")} ${chalk.yellowBright(depId)} ${chalk.redBright("(not found on Modrinth)")}`);
+                    }
+                });
+                // Ask user how to proceed
+                async function askDepPrompt(): Promise<"all"|"none"|"select"> {
+                    const depPrompt = await promptUser(chalk.yellowBright("Add all dependencies? (Y = all, N = none, S = select): "));
+                    if (!depPrompt || depPrompt.trim().toLowerCase().startsWith("y")) return "all";
+                    if (depPrompt.trim().toLowerCase().startsWith("n")) return "none";
+                    if (depPrompt.trim().toLowerCase().startsWith("s")) return "select";
+                    console.error(chalk.redBright.bold(" ✖  Please enter Y, N, or S."));
+                    return askDepPrompt();
+                }
+                let toAdd: typeof depProjects = [];
+                const depChoice = await askDepPrompt();
+                if (depChoice === "all") {
+                    toAdd = depProjects.filter(({ depProject }) => !!depProject);
+                } else if (depChoice === "select") {
+                    // Use multiSelectFromList for selection
+                    const depTitles = depProjects
+                        .filter(({ depProject }) => !!depProject)
+                        .map(({ depProject }) => `${(depProject as any).title} (${(depProject as any).slug})`);
+                    let selected: number[] = [];
+                    if (depTitles.length > 0) {
+                        selected = await multiSelectFromList(depTitles, chalk.blueBright("Select dependencies to add (toggle with numbers, 'a' for all, 'd' for done): "));
+                    }
+                    toAdd = depProjects.filter(({ depProject }, i) => !!depProject && selected.includes(i));
+                } // else, none
+                for (const { depProject } of toAdd) {
+                    if (!depProject) continue;
+                    try {
+                        const depStub = await projectToStub(depProject, pack);
+                        depStub.write(cwd, verbose);
+                        console.log(chalk.greenBright.bold(` ✔  Added dependency '${depProject.title}' (${depProject.slug})!`));
+                    } catch (err: any) {
+                        console.error(chalk.redBright.bold(` ✖  Failed to add dependency '${depProject.slug}': ${err.message}`));
+                    }
+                }
             }
         }
     }
 });
-
-registerCommand(addCommand);
-
-export { addCommand };

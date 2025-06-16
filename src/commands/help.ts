@@ -1,83 +1,93 @@
+import { commands, registerCommand, type CommandFlag } from "../lib/command";
 import chalk from "chalk";
-import {
-    Command,
-    registerCommand,
-    commands,
-    globalFlags,
-    getCommand
-} from '../lib/command';
 
-// Help command implementation
-const helpCommand = new Command({
-    name: 'help',
-    description: 'Show help for a command or list all commands.',
-    arguments: [
+registerCommand({
+    name: "help",
+    aliases: [],
+    description: "Displays a list of commands or details for a specific command.",
+    options: [
         {
-            name: 'command',
-            aliases: [],
-            description: 'The command to show help for',
-            required: false
+            name: "command",
+            description: "The command to get help for.",
+            required: false,
+            exampleValues: ["version"],
         }
     ],
     flags: [],
-    examples: [
-        {
-            description: 'Show all commands',
-            usage: 'minepack help'
-        },
-        {
-            description: 'Show help for a specific command',
-            usage: 'minepack help build'
-        }
+    exampleUsage: [
+        "minepack help",
+        "minepack help version"
     ],
-    execute(args) {
-        const cmdName = args.command as string | undefined;
-        if (!cmdName) {
-            // List all commands
-            console.log(chalk.bold("Available commands:"));
-            for (const cmd of Object.values(commands)) {
-                console.log(`  ${chalk.green(cmd.name)} - ${cmd.description}`);
+    execute: async ({ flags, options }) => {
+        const commandName = options[0];
+
+        if (commandName) {
+            const command = commands.find(c => c.name === commandName || (c.aliases && c.aliases.includes(commandName)));
+            if (!command) {
+                console.error(chalk.redBright.bold(" ✖ Unknown command: ") + chalk.whiteBright(` ${commandName} `) + chalk.gray("; use ") + chalk.blueBright("minepack help") + chalk.gray(" to see available commands."));
+                return;
             }
-            console.log(`\nRun ${chalk.cyan("minepack help <command>")} to get more info about a command.`);
-            return;
-        }
-        const cmd = getCommand(cmdName);
-        if (!cmd) {
-            console.error(chalk.red(`Unknown command: ${cmdName}`));
-            return;
-        }
-        // Show manpage for the command
-        console.log(chalk.bold("NAME"));
-        console.log(`  ${chalk.green(cmd.name)} - ${cmd.description}\n`);
-        if (cmd.arguments.length) {
-            console.log(chalk.bold("ARGUMENTS:"));
-            for (const arg of cmd.arguments) {
-                const aliasStr = arg.aliases && arg.aliases.length ? chalk.gray(` (aliases: ${arg.aliases.join(", ")})`) : '';
-                console.log(`  ${chalk.yellow(arg.name)}${aliasStr} - ${arg.description}`);
+
+            console.log(chalk.gray('────────────────────────────────────────────────────────────'));
+            console.log(
+                chalk.blueBright.bold('minepack ') +
+                chalk.bold(command.name) +
+                ((command.aliases.length > 0) ? chalk.gray(` [aliases: ${command.aliases.map(a => chalk.yellowBright(a)).join(chalk.gray(", "))}]`) : "")
+            );
+            console.log(chalk.whiteBright(command.description));
+            if (command.options.length > 0) {
+                console.log("\n" + chalk.greenBright.bold("⚙ OPTIONS"));
+                let optCount = 0;
+                command.options.forEach(opt => {
+                    const isLastOpt = ++optCount === command.options.length;
+                    console.log(
+                        `  ${chalk.bold.dim.greenBright(isLastOpt ? "╰╴" : "├╴")}${chalk.greenBright(opt.name)}${opt.required ? chalk.redBright(' (required)') : chalk.gray(' [optional]')}: ${chalk.whiteBright(opt.description)}`
+                    );
+                    if (opt.exampleValues) {
+                        console.log(chalk.gray(`      examples:`));
+                        opt.exampleValues.forEach(val => {
+                            console.log(`        ${chalk.magentaBright('→')} minepack ${chalk.bold.white(command.name)} ${chalk.blueBright(val)}`);
+                        });
+                    }
+                });
             }
-            console.log("");
-        }
-        // Show flags for the command (if any)
-        if (cmd.flags && cmd.flags.length) {
-            console.log(chalk.bold("FLAGS:"));
-            for (const flag of cmd.flags) {
-                const aliasStr = flag.aliases && flag.aliases.length ? chalk.gray(` (aliases: ${flag.aliases.join(", ")})`) : '';
-                console.log(`  ${chalk.blue(`--${flag.name}`)}${aliasStr} - ${flag.description}`);
+
+            if (command.flags.length > 0) {
+                console.log("\n" + chalk.yellowBright.bold("⚐ FLAGS"));
+                let count = 0;
+                command.flags.forEach((flag: CommandFlag) => {
+                    const isLastFlag = ++count === command.flags.length;
+                    console.log(
+                        `  ${chalk.bold.dim.yellowBright(isLastFlag ? "╰╴" : "├╴")}${chalk.yellowBright(`--${flag.name}`)}${flag.short ? ` ${chalk.gray(`(-${flag.short})`)}` : ""}${flag.takesValue ? chalk.gray(" <value>") : ""}: ${chalk.whiteBright(flag.description)}`
+                    );
+                    if (flag.exampleValues) {
+                        console.log(chalk.gray(`      examples:`));
+                        flag.exampleValues.forEach(val => {
+                            console.log(`        ${chalk.magentaBright('→')} minepack ${chalk.bold(command.name)} ${flag.short ? chalk.gray(`-${flag.short}`) : chalk.yellowBright(`--${flag.name}`)} ${chalk.blueBright(val)}`);
+                        });
+                    }
+                });
             }
-            console.log("");
-        }
-        if (cmd.examples.length) {
-            console.log(chalk.bold("EXAMPLES:"));
-            for (const ex of cmd.examples) {
-                console.log(`  ${chalk.gray("# " + ex.description)}`);
-                console.log(`  ${chalk.cyan("$ " + ex.usage)}`);
+
+            if (command.exampleUsage.length > 0) {
+                console.log("\n" + chalk.magentaBright.bold("🗋 EXAMPLE USAGE"));
+                const flagRegex = /(--[\w-]+|-[a-zA-Z]{1,})/g;
+                command.exampleUsage.forEach((example, i) => {
+                    const isLastEx = i === command.exampleUsage.length - 1;
+                    const coloredExample = example.replace(flagRegex, match => chalk.gray(match));
+                    console.log(`  ${chalk.bold.dim.magentaBright(isLastEx ? "╰╴" : "├╴")}${coloredExample}`);
+                });
             }
-            console.log("");
+            console.log(chalk.gray('────────────────────────────────────────────────────────────'));
+        } else {
+            console.log(chalk.gray('────────────────────────────────────────────────────────────'));
+            console.log(chalk.magentaBright.bold("🕮  AVAILABLE COMMANDS"));
+            commands.forEach((command, i) => {
+                const isLastCmd = i === commands.length - 1;
+                console.log(`  ${chalk.bold.dim.blueBright(isLastCmd ? "╰╴" : "├╴")}${chalk.blueBright(command.name)}: ${chalk.whiteBright(command.description)}`);
+            });
+            console.log("\n" + chalk.gray("Use ") + chalk.blueBright("minepack help <command>") + chalk.gray(" to get more details on a specific command."));
+            console.log(chalk.gray('────────────────────────────────────────────────────────────'));
         }
     }
 });
-
-registerCommand(helpCommand);
-
-// Export for main CLI
-export { helpCommand };

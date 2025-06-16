@@ -1,17 +1,15 @@
-import { Command, registerCommand } from "../lib/command";
-import chalk from "chalk";
+import { registerCommand } from "../lib/command";
 import { VERSION } from "../version";
+import chalk from "chalk";
 
-const versionCommand = new Command({
+registerCommand({
     name: "version",
-    description: "Show the current minepack version.",
-    arguments: [],
+    aliases: [],
+    description: "Returns the current version of minepack.",
+    options: [],
     flags: [],
-    async execute() {
-        console.log(chalk.green(`v${VERSION}`));
+    exampleUsage: ["minepack version"],
+    execute: async ({ flags, options }) => {
+        console.log(`minepack ${chalk.blue(VERSION)}`);
     }
 });
-
-registerCommand(versionCommand);
-
-export { versionCommand };

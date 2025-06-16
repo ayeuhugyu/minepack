@@ -1,149 +1,156 @@
-import chalk from "chalk";
+import { registerCommand } from "../lib/command";
+import { promptUser, selectFromList, statusMessage } from "../lib/util";
+import fs from "fs";
 import path from "path";
-import fs from "fs-extra";
-import readline from "readline/promises";
-import {
-    Command,
-    registerCommand,
-    commands,
-    globalFlags,
-    getCommand
-} from '../lib/command';
-import { PackMeta } from "../lib/pack";
+import chalk from "chalk";
+import { Pack } from "../lib/pack";
+import { ModLoaders } from "../lib/loaderVersions";
+import { projectReadmeContent } from "../lib/projectReadmeContent";
 
-interface ProjectFile {
-    path: string;
-    content: string;
-}
-
-// Help command implementation
-const initCommand = new Command({
-    name: 'init',
-    description: 'Initializes a new Minepack project in the current or specified directory.',
+registerCommand({
+    name: "init",
+    aliases: ["new"],
+    description: "Initializes a new minepack project in the current directory, or a specified directory. ",
+    options: [
+        {
+            name: "path",
+            description: "The optional path to initialize the project in. Defaults to the current working directory.",
+            required: false,
+            exampleValues: ["C:\\Users\\User\\my-minepack-project", "~/my-minepack-project", "./my-minepack-project"],
+        }
+    ],
     flags: [
         {
             name: "force",
-            aliases: ["f"],
-            description: "Force re-initialization even if pack.mp.json exists.",
-            takesValue: false
+            description: "Force reinitialization of the project, even if it already exists.",
+            short: "f",
+            takesValue: false,
         },
         {
-            name: 'directory',
-            aliases: ['d'],
-            description: 'The directory to initialize the project in. Defaults to the current directory.',
-            takesValue: true
+            name: "verbose",
+            description: "Enable verbose output for debugging purposes.",
+            short: "v",
+            takesValue: false,
         }
     ],
-    examples: [
-        {
-            description: 'Initialize a new Minepack project',
-            usage: 'minepack init'
-        },
-        {
-            description: 'Initialize a new Minepack project in a specific directory',
-            usage: 'minepack init --directory ./my-project'
-        }
+    exampleUsage: [
+        "minepack init",
+        "minepack init ./my-minepack-project",
+        "minepack init ~/my-minepack-project",
+        "minepack init C:\\Users\\User\\my-minepack-project"
     ],
-    async execute(args, flags) {
-        console.log(chalk.bold("Initializing Minepack project..."));
-        const dirInput = args.directory || flags.directory || '.';
-        const dir = path.resolve(process.cwd(), dirInput.toString());
-        console.log(`Project will be initialized in: ${chalk.cyan(dir)}`);
+    execute: async ({ flags, options }) => {
+        const inputPath = options[0] || process.cwd();
+        const projectPath = path.isAbsolute(inputPath) ? inputPath : path.resolve(process.cwd(), inputPath);
+        if (flags.verbose) console.log(chalk.gray(`Initializing a new minepack project in ${chalk.yellowBright(projectPath)}`));
 
-        if (!dirInput || dirInput === '.') {
-            console.log(chalk.yellow("No directory specified, using current directory."));
-        } else {
-            console.log(`Using specified directory: ${chalk.cyan(dir)}`);
+        // Check if the directory already exists
+        if (!fs.existsSync(projectPath)) {
+            fs.mkdirSync(projectPath);
+            if (flags.verbose) console.log(chalk.gray(`Created directory: ${chalk.yellowBright(projectPath)}`));
         }
-
-        if (fs.existsSync(dir)) {
-            console.log(chalk.yellow(`Directory ${chalk.cyan(dir)} already exists.`));
-        } else {
-            console.log(chalk.yellow(`Directory ${chalk.cyan(dir)} does not already exist, it will be created.`));
-            fs.mkdirSync(dir, { recursive: true });
-        }
-
-        // === Detect existing pack.mp.json ===
-        const packJsonPath = path.join(dir, 'pack.mp.json');
-        if (fs.existsSync(packJsonPath) && !flags.force) {
-            console.log(chalk.red("A pack.mp.json already exists in this directory. Use --force to re-initialize."));
+        if (Pack.isPack(projectPath) && !flags.force) {
+            console.error(chalk.redBright.bold(" ✖  This directory is already a minepack project. Pass --force to reinitialize it."));
             return;
         }
+        if (Pack.isPack(projectPath) && flags.force) {
+            console.log(chalk.yellowBright.bold(" ⚠  Reinitializing existing minepack project..."));
+        }
 
-        if (fs.existsSync(packJsonPath) && !flags.force) {
-            try {
-                const raw = fs.readFileSync(packJsonPath, 'utf8');
-                const parsed = JSON.parse(raw);
-                // Try to construct PackMeta, will throw if invalid
-                new PackMeta(parsed);
-                console.log(chalk.red(`A Minepack project already exists in ${chalk.cyan(dir)}.`));
-                console.log(chalk.red('Aborting initialization.'));
-                return;
-            } catch (e) {
-                // If error, allow to continue (corrupt or not a Minepack pack.mp.json)
-                console.log(chalk.yellow('Existing pack.mp.json is invalid or not a Minepack project. Continuing...'));
+        const name = await promptUser(chalk.blueBright.bold("Pack name:") + chalk.reset());
+        const description = await promptUser(chalk.blueBright.bold("Pack description:") + chalk.reset());
+        const author = await promptUser(chalk.blueBright.bold("Author name:") + chalk.reset());
+        const version = (await promptUser(chalk.blueBright.bold("Pack version ") + chalk.gray("(default 1.0.0):") + chalk.reset())) || "1.0.0";
+        let gameversion: string;
+        while (true) {
+            gameversion = await promptUser(chalk.blueBright.bold("Game version ") + chalk.gray("(e.g. 1.20.1):") + chalk.reset());
+            if (gameversion.split('.').every(part => /^\d+$/.test(part)) && gameversion.split('.').length === 3) {
+                break;
             }
+            console.error(chalk.redBright.bold(" ✖  Invalid game version format. Please use a format like 1.20.1."));
         }
 
-        // === Interactive prompts for PackMeta ===
-        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-        const name = await rl.question('Project name: ') || 'My Minepack Project';
-        const version = await rl.question('Project version (e.g. 1.0.0): ') || '1.0.0';
-        const author = await rl.question('Author: ') || 'Unknown Author';
-        const gameversion = await rl.question('Minecraft version (e.g. 1.20.4): ') || '1.20.4';
+        const modloaderList = [
+            "fabric",
+            "quilt",
+            "forge",
+            "neoforge",
+            "liteloader",
+        ];
+        const modloader = await selectFromList(
+            modloaderList.map(key => chalk.greenBright(key)),
+            chalk.blueBright.bold("Select a modloader:") + chalk.reset(),
+        );
 
-        // Modloader selection
-        const { ModLoaders } = await import('../lib/version');
-        const modloaderNames = Object.keys(ModLoaders);
-        console.log('Available modloaders:');
-        modloaderNames.forEach((ml, i) => {
-            console.log(`  [${i + 1}] ${ModLoaders[ml].friendlyName} (${ml})`);
-        });
-        let modloaderIndex = parseInt(await rl.question('Select modloader [number]: '), 10) - 1;
-        while (isNaN(modloaderIndex) || modloaderIndex < 0 || modloaderIndex >= modloaderNames.length) {
-            modloaderIndex = parseInt(await rl.question('Invalid selection. Select modloader [number]: '), 10) - 1;
+        const versionStatus = await statusMessage(chalk.gray("Fetching latest modloader version..."));
+        const loaderData = ModLoaders[modloaderList[modloader]];
+        if (!loaderData) {
+            console.error(chalk.redBright.bold(" ✖  Invalid modloader selected."));
+            versionStatus.done();
+            return;
         }
-        const modloaderName = modloaderNames[modloaderIndex];
-        const modloader = ModLoaders[modloaderName];
-        // Fetch modloader versions
-        let modloaderVersion = '';
+        let modloaderVersion: string | undefined;
         try {
-            const [versions, latest] = await modloader.versionListGetter(gameversion);
-            console.log(`Latest version for ${modloader.friendlyName}: ${latest}`);
-            modloaderVersion = await rl.question(`Modloader version [default: ${latest}]: `) || latest;
-        } catch (e) {
-            console.log(chalk.red(`Could not fetch versions for ${modloader.friendlyName}: ${e}`));
-            modloaderVersion = await rl.question('Modloader version: ');
-        }
-
-        await rl.close();
-
-        // === Write pack.mp.json ===
-        const packJson = {
-            name,
-            version,
-            author,
-            gameversion,
-            modloader: {
-                name: modloaderName,
-                version: modloaderVersion
+            modloaderVersion = (await loaderData.versionListGetter(gameversion))[1];
+            if (!modloaderVersion) {
+                throw new Error("No compatible version found.");
             }
-        };
-        fs.writeFileSync(packJsonPath, JSON.stringify(packJson, null, 4));
-        console.log(chalk.green(`Created ${packJsonPath}`));
+        } catch (error: any) {
+            versionStatus.update(
+                chalk.redBright.bold(" ✖  Failed to fetch modloader version: ") +
+                chalk.whiteBright(error?.message || error)
+            );
+            return;
+        }
+        versionStatus.done();
 
-        // Create mods directory if not exists
-        const modsDir = path.join(dir, 'mods');
-        if (!fs.existsSync(modsDir)) {
-            fs.mkdirSync(modsDir, { recursive: true });
-            console.log(`Created directory: ${chalk.cyan(modsDir)}`);
+        const userInputtedModloaderVersion = (await promptUser(
+            chalk.blueBright.bold(`Modloader version `) +
+            chalk.gray(`(leave blank to use ${chalk.yellowBright(loaderData.friendlyName)} ${chalk.yellowBright(modloaderVersion)})`) +
+            ":" + chalk.reset()
+        )) || modloaderVersion;
+
+        const pack: Pack = new Pack(
+            name,
+            author,
+            description,
+            projectPath,
+            {
+                name: loaderData.name,
+                version: userInputtedModloaderVersion
+            },
+            gameversion,
+            version
+        );
+
+        if (flags.verbose) console.log(chalk.gray(`Creating pack file at ${chalk.yellowBright(projectPath + "/pack.mp.json")}`));
+        if (flags.force && Pack.isPack(projectPath)) {
+            console.log(chalk.yellowBright.bold(" ⚠  Overwriting existing pack file..."));
         }
 
-        console.log(chalk.green("Minepack project initialized successfully!"));
+        const stubsDir = path.join(projectPath, "stubs");
+        if (!fs.existsSync(stubsDir)) {
+            if (flags.verbose) console.log(chalk.gray(`Creating stubs directory at ${chalk.yellowBright(stubsDir)}`));
+            fs.mkdirSync(stubsDir);
+        }
+
+        const overridesDir = path.join(projectPath, "overrides");
+        if (!fs.existsSync(overridesDir)) {
+            if (flags.verbose) console.log(chalk.gray(`Creating overrides directory at ${chalk.yellowBright(overridesDir)}`));
+            fs.mkdirSync(overridesDir);
+        }
+
+        // Create a README.md file if it doesn't exist
+        const readmePath = path.join(projectPath, "README.md");
+        if (!fs.existsSync(readmePath)) {
+            if (flags.verbose) console.log(chalk.gray(`Creating README.md at ${chalk.yellowBright(readmePath)}`));
+            fs.writeFileSync(
+                readmePath,
+                projectReadmeContent
+            );
+        }
+
+        pack.write(flags.verbose);
+        console.log(chalk.greenBright.bold(" ✔  Successfully initialized new minepack project!\nSee the README.md file created within the project for a little more information on how to use minepack."));
     }
 });
-
-registerCommand(initCommand);
-
-// Export for main CLI
-export { initCommand };

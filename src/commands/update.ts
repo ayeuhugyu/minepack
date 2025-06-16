@@ -1,90 +1,120 @@
+import { registerCommand } from "../lib/command";
+import { findProject } from "../lib/modrinth/search";
+import { projectToStub } from "../lib/modrinth/projectToStub";
+import { Pack } from "../lib/pack";
 import chalk from "chalk";
-import path from "path";
-import fs from "fs-extra";
-import { Command, registerCommand } from "../lib/command";
-import { addOrUpdateContent } from "../lib/addOrUpdate";
-import { removeStubFromTracked, STUB_EXT, getContentFolders, getStubFilesFromTracked } from "../lib/packUtils";
+import { promptUser, selectFromList, multiSelectFromList } from "../lib/util";
 
-const updateCommand = new Command({
+registerCommand({
     name: "update",
-    description: "Update all mods and content in your pack to the latest version for the current Minecraft version and modloader. This may change mod versions and loader compatibility if your pack.mp.json has changed. If a mod cannot be updated, you will be prompted to ignore or remove it.",
-    async execute() {
-        const packJsonPath = path.resolve(process.cwd(), "pack.mp.json");
-        if (!fs.existsSync(packJsonPath)) {
-            console.log(chalk.red("No pack.mp.json found in the current directory. Please run this command from your pack root."));
+    aliases: ["updatemod", "upgrade"],
+    description: "Update a mod (stub) in the current minepack project, or all mods with --all.",
+    options: [
+        {
+            name: "mod",
+            description: "The mod name, slug, or ID to update. Omit if using --all.",
+            required: false,
+            exampleValues: ["sodium", "lithium", "modrinth-xyz123"],
+        }
+    ],
+    flags: [
+        {
+            name: "all",
+            description: "Update all mods in the pack.",
+            short: "a",
+            takesValue: false,
+        },
+        {
+            name: "verbose",
+            description: "Enable verbose output.",
+            short: "v",
+            takesValue: false,
+        }
+    ],
+    exampleUsage: [
+        "minepack update sodium",
+        "minepack update --all",
+        "minepack update lithium --verbose"
+    ],
+    execute: async ({ flags, options }) => {
+        const cwd = process.cwd();
+        const pack = Pack.parse(cwd);
+        if (!pack) {
+            console.error(chalk.redBright.bold(" ✖  Not a minepack project directory."));
             return;
         }
-        const packJson = JSON.parse(fs.readFileSync(packJsonPath, "utf-8"));
-        // Find all .json stubs in all content folders
-        const folders = getContentFolders();
-        let stubs: { file: string, data: any, folder: string }[] = [];
-        for (const folder of folders) {
-            const dir = path.resolve(process.cwd(), folder);
-            if (!fs.existsSync(dir)) continue;
-            for (const file of fs.readdirSync(dir)) {
-                if (file.endsWith(STUB_EXT)) {
-                    try {
-                        const data = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8"));
-                        stubs.push({ file: path.join(dir, file), data, folder });
-                    } catch {}
-                }
+        const verbose = !!flags.verbose;
+        const stubs = pack.getStubs(verbose);
+        if (flags.all) {
+            if (stubs.length === 0) {
+                console.log(chalk.yellowBright.bold("No mods to update."));
+                return;
             }
-        }
-        if (!stubs.length) {
-            console.log(chalk.yellow("No mod/content stubs found to update."));
+            console.log(chalk.cyanBright.bold(`Updating all mods in the pack...`));
+            await Promise.all(stubs.map(async (stub) => {
+                const project = await findProject(stub.slug, pack, verbose);
+                if (!project) {
+                    console.log(chalk.redBright.bold(` ✖  Could not find mod '${stub.slug}' on Modrinth. Skipping.`));
+                    return;
+                }
+                try {
+                    const newStub = await projectToStub(project, pack);
+                    newStub.write(cwd, verbose);
+                    console.log(chalk.greenBright.bold(` ✔  Updated '${project.title}' (${project.slug})!`));
+                } catch (err: any) {
+                    console.error(chalk.redBright.bold(` ✖  Failed to update '${project.slug}': ${err.message}`));
+                }
+            }));
             return;
         }
-        for (const stub of stubs) {
-            const { data, file, folder } = stub;
-            let input = data.update?.['mod-id'] || data.download?.url || data.name;
-            let flags = { ...data, ...data.download, type: data.type };
-            // Remove fields that shouldn't be flags
-            delete flags.download;
-            delete flags.update;
-            delete flags.fileSize;
-            delete flags.type;
-            // Use addOrUpdateContent with non-interactive prompt
-            const result = await addOrUpdateContent({
-                input,
-                flags: { ...flags, type: data.type },
-                packMeta: packJson,
-                interactive: false,
-                onPrompt: async (results: any[], modrinthProject?: any) => {
-                    if (results && results.length) {
-                        // Pick first result automatically for update
-                        return 0;
-                    } else if (modrinthProject) {
-                        // Prompt user to ignore or remove
-                        const readline = await import('readline/promises');
-                        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-                        let answer = await rl.question(`No version found for ${modrinthProject.title} with current pack version/loader. [i]gnore/[r]emove? `);
-                        await rl.close();
-                        if (answer.trim().toLowerCase().startsWith('r')) return 'remove';
-                        return 'ignore';
-                    }
-                    return 'ignore';
+        // Single mod update
+        const modQuery = options.join(" ").trim();
+        if (!modQuery) {
+            console.error(chalk.redBright.bold(" ✖  Please provide a mod to update, or use --all."));
+            return;
+        }
+        // Try to find the stub
+        let target = stubs.find(stub => stub.slug.toLowerCase() === modQuery.toLowerCase());
+        if (!target) target = stubs.find(stub => stub.projectId.toLowerCase() === modQuery.toLowerCase());
+        if (!target) target = stubs.find(stub => stub.name.toLowerCase() === modQuery.toLowerCase());
+        if (!target) {
+            // Fuzzy match
+            const matches = stubs
+                .map(stub => ({
+                    stub,
+                    score: (stub.name.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                        + (stub.slug.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                        + (stub.projectId.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                }))
+                .filter(x => x.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5);
+            if (matches.length > 0) {
+                const list = matches.map(x => `${chalk.bold(x.stub.name)} (${chalk.yellowBright(x.stub.slug)})`);
+                const idx = await selectFromList([...list, chalk.redBright("None of these")], chalk.yellowBright("No exact match found. Which mod did you mean?"));
+                if (idx < matches.length) {
+                    target = matches[idx].stub;
+                } else {
+                    console.log(chalk.redBright.bold(" ✖  No matching mod found in this pack."));
+                    return;
                 }
-            });
-            if (result.status === 'remove') {
-                fs.unlinkSync(file);
-                if (file.endsWith(STUB_EXT)) {
-                    removeStubFromTracked(process.cwd(), path.relative(process.cwd(), file));
-                }
-                console.log(chalk.red(`[removed] ${file}`));
-            } else if (result.status === 'skipped') {
-                console.log(chalk.yellow(`[skipped] ${file}`));
-            } else if (result.status === 'success') {
-                console.log(chalk.green(`[updated] ${file}`));
-            } else if (result.status === 'notfound') {
-                console.log(chalk.red(`[not found] ${file}`));
             } else {
-                console.log(chalk.gray(`[info] ${file}: ${result.message}`));
+                console.log(chalk.redBright.bold(" ✖  No matching mod found in this pack."));
+                return;
             }
         }
-        console.log(chalk.bold.green("Update complete."));
+        // Update the stub
+        const project = await findProject(target.slug, pack, verbose);
+        if (!project) {
+            console.error(chalk.redBright.bold(` ✖  Could not find mod '${target.slug}' on Modrinth.`));
+            return;
+        }
+        try {
+            const newStub = await projectToStub(project, pack);
+            newStub.write(cwd, verbose);
+            console.log(chalk.greenBright.bold(` ✔  Updated '${project.title}' (${project.slug})!`));
+        } catch (err: any) {
+            console.error(chalk.redBright.bold(` ✖  Failed to update '${project.slug}': ${err.message}`));
+        }
     }
 });
-
-registerCommand(updateCommand);
-
-export { updateCommand };

@@ -1,15 +1,14 @@
-import fs from "fs-extra";
-import path from "path";
-import os from "os";
+import { registerCommand } from "../lib/command";
 import chalk from "chalk";
+import fs from "fs";
+import path from "path";
 import https from "https";
-import { Command, registerCommand } from "../lib/command";
 
 const REPO = "ayeuhugyu/minepack";
 
 function getPlatformBinaryName() {
-    const platform = os.platform();
-    const arch = os.arch();
+    const platform = process.platform;
+    const arch = process.arch;
     if (platform === "win32") return arch === "x64" ? "minepack-win-x64.exe" : "minepack.exe";
     if (platform === "darwin") return arch === "arm64" ? "minepack-mac-arm64" : "minepack-mac-x64";
     if (platform === "linux") {
@@ -19,11 +18,11 @@ function getPlatformBinaryName() {
     return null;
 }
 
-async function fetchLatestRelease() {
+async function fetchRelease(tag?: string): Promise<any> {
     return new Promise((resolve, reject) => {
         https.get({
             hostname: "api.github.com",
-            path: `/repos/${REPO}/releases/latest`,
+            path: tag ? `/repos/${REPO}/releases/tags/${tag}` : `/repos/${REPO}/releases/latest`,
             headers: { "User-Agent": "minepack-selfupdate" }
         }, res => {
             let data = "";
@@ -61,11 +60,11 @@ async function downloadFile(url: string, dest: string): Promise<void> {
                     if (total > 0) {
                         const percent = Math.floor((received / total) * 100);
                         if (percent !== lastPercent) {
-                            process.stdout.write(`\r[download] ${percent}% (${received}/${total} bytes)`);
+                            process.stdout.write("\r" + chalk.gray("[download] ") + chalk.greenBright(`${percent}%`) + chalk.gray(` (${received}/${total} bytes)`));
                             lastPercent = percent;
                         }
                     } else {
-                        process.stdout.write(`\r[download] ${received} bytes`);
+                        process.stdout.write("\r" + chalk.gray("[download] ") + chalk.yellowBright(`${received} bytes`));
                     }
                     pump();
                 });
@@ -76,86 +75,64 @@ async function downloadFile(url: string, dest: string): Promise<void> {
     });
 }
 
-const selfupdateCommand = new Command({
+registerCommand({
     name: "selfupdate",
-    description: "Attempt to update minepack to the latest release from GitHub.",
-    arguments: [],
+    aliases: ["upgrade", "update-self"],
+    description: "Update minepack to the latest release from GitHub.",
+    options: [],
     flags: [
-        { name: "version", aliases: ["v"], description: "Update to a specific version/tag", takesValue: true }
+        { name: "version", description: "Update to a specific version/tag", short: "v", takesValue: true }
     ],
-    async execute(_args, flags) {
+    exampleUsage: [
+        "minepack selfupdate",
+        "minepack selfupdate --version v5"
+    ],
+    execute: async ({ flags }) => {
         const binaryName = getPlatformBinaryName();
         if (!binaryName) {
-            console.log(chalk.red("Unsupported platform/arch for self-update."));
+            console.log(chalk.redBright.bold("✖ Unsupported platform/arch for self-update."));
             return;
         }
         let release;
         try {
-            if (flags.version) {
-                // Fetch specific release by tag
-                release = await new Promise((resolve, reject) => {
-                    https.get({
-                        hostname: "api.github.com",
-                        path: `/repos/${REPO}/releases/tags/${flags.version}`,
-                        headers: { "User-Agent": "minepack-selfupdate" }
-                    }, res => {
-                        let data = "";
-                        res.on("data", chunk => data += chunk);
-                        res.on("end", () => {
-                            if (res.statusCode === 200) {
-                                resolve(JSON.parse(data));
-                            } else {
-                                reject(new Error(`Failed to fetch release: ${res.statusCode}`));
-                            }
-                        });
-                    }).on("error", reject);
-                });
-            } else {
-                release = await fetchLatestRelease();
-            }
-        } catch (err) {
-            console.log(chalk.red(`Failed to fetch release info: ${err}`));
+            release = await fetchRelease(flags.version);
+        } catch (err: any) {
+            console.log(chalk.redBright.bold(`✖ Failed to fetch release info: ${err.message || err}`));
             return;
         }
         const rel = release as { assets?: any[] };
         const asset = (rel.assets || []).find((a: any) => a.name === binaryName);
         if (!asset) {
-            console.log(chalk.red(`No binary found for your platform (${binaryName}) in the latest release.`));
+            console.log(chalk.redBright.bold(`✖ No binary found for your platform (${binaryName}) in the release.`));
             return;
         }
         const currentPath = process.execPath;
         const tmpPath = currentPath + ".tmp";
-        console.log(chalk.gray(`[info] Downloading ${asset.name} from ${asset.browser_download_url}...`));
+        console.log(chalk.gray(`[info] Downloading ${chalk.cyanBright(asset.name)} from ${chalk.underline(asset.browser_download_url)}...`));
         try {
             await downloadFile(asset.browser_download_url, tmpPath);
-        } catch (err) {
-            console.log(chalk.red(`Failed to download binary: ${err}`));
+        } catch (err: any) {
+            console.log(chalk.redBright.bold(`✖ Failed to download binary: ${err.message || err}`));
             return;
         }
         try {
-            // On Windows, can't overwrite running exe. On Unix, can usually overwrite.
             if (process.platform === "win32") {
-                // Move current exe to .old, move tmp to exe, prompt user to restart
-                const ext = path.extname(currentPath)
+                const ext = path.extname(currentPath);
                 const oldPath = ext
                     ? currentPath.slice(0, -ext.length) + "-old" + ext + ".old"
                     : currentPath + "-old";
                 fs.renameSync(currentPath, oldPath);
                 fs.renameSync(tmpPath, currentPath);
-                console.log(chalk.green(`minepack updated! (Previous version saved as ${oldPath})`));
+                console.log(chalk.greenBright.bold(`✔ minepack updated! (Previous version saved as ${oldPath})`));
             } else {
                 fs.renameSync(tmpPath, currentPath);
                 fs.chmodSync(currentPath, 0o755);
-                console.log(chalk.green("minepack updated!"));
+                console.log(chalk.greenBright.bold("✔ minepack updated!"));
             }
-        } catch (err) {
-            console.log(chalk.red(`Failed to replace binary: ${err}`));
-            console.log(chalk.yellow(`The new binary is at: ${tmpPath}\nYou may need to replace the current executable manually.`));
+        } catch (err: any) {
+            console.log(chalk.redBright.bold(`✖ Failed to replace binary: ${err.message || err}`));
+            console.log(chalk.yellowBright(`The new binary is at: ${tmpPath}\nYou may need to replace the current executable manually.`));
             return;
         }
     }
 });
-
-registerCommand(selfupdateCommand);
-
-export { selfupdateCommand };

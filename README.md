@@ -1,74 +1,121 @@
-# minepack
+# Minepack
 
-A modern Minecraft modpack manager and CLI tool that feels similar to real package managers.
+A modern CLI tool for managing Minecraft modpacks, with robust dependency management, beautiful output, and Modrinth integration.
+
+---
 
 ## Features
-- **Cross-platform CLI** for managing Minecraft modpacks
-- Supports mods, resourcepacks, shaderpacks, datapacks, plugins, and more
-- Modrinth API integration for searching, adding, and updating content
-- Content-type-aware folder management
-- Export to Modrinth `.mrpack` format
-- Import from Packwiz projects
+- **Create, search, add, remove, and list mods** for your pack
+- **Dependency resolution** and interactive selection
+- **Colorful, aligned, emoji-rich CLI output**
+- **Export to Modrinth .mrpack** format (with overrides and versioning)
+- **Self-update** from GitHub releases
+- **Powerful map and query commands**
+
+---
 
 ## Installation
 
-### Download prebuilt binaries
-- Visit the [Releases page](https://github.com/ayeuhugyu/minepack/releases) to download the latest version for your OS.
-- Place the binary somewhere in your PATH (e.g. `/usr/local/bin`).
+### 1. Download a Release (Recommended)
 
-### Build from source
-1. [Install Bun](https://bun.sh/)
-2. Clone this repo:
-   ```sh
-   git clone https://github.com/ayeuhugyu/minepack.git
-   cd minepack
-   ```
-3. Compile:
-   ```sh
-   bun compile
-   ```
-4. The binary will be in `build/`.
+Go to the [Releases page](https://github.com/ayeuhugyu/minepack/releases) and download the latest binary for your platform (e.g. `minepack-win-x64.exe`, `minepack-linux-x64`, etc). Place it somewhere in your PATH or run it directly.
+
+### 2. Build from Source (Alternative)
+
+#### a. Install [Bun](https://bun.sh/)
+
+```
+curl -fsSL https://bun.sh/install | bash
+```
+
+Or see the [Bun install docs](https://bun.sh/docs/installation) for your platform.
+
+#### b. Clone and Install Dependencies
+
+```
+git clone https://github.com/ayeuhugyu/minepack.git
+cd minepack
+bun install
+```
+
+#### c. Compile Automatically (Recommended)
+
+```
+bun compile
+```
+
+This will attempt to detect your platform and build the correct binary in the `build/` directory.
+
+#### d. Manual Compilation (If auto-detect fails)
+
+- **Windows x64:**
+  ```
+bun compile:win-x64
+  ```
+- **Mac x64:**
+  ```
+bun compile:mac-x64
+  ```
+- **Mac ARM64:**
+  ```
+bun compile:mac-arm64
+  ```
+- **Linux x64:**
+  ```
+bun compile:linux-x64
+  ```
+- **Linux ARM64:**
+  ```
+bun compile:linux-arm64
+  ```
+- **All Platforms All At Once:**
+  ```
+bun compile:all
+  ```
+
+The compiled binaries will be in the `build/` directory.
+
+---
 
 ## Usage
 
-Run `minepack help` for full command/flag info.
+You can run the CLI directly with Bun for development:
 
-### Commands
+```
+bun run src/index.ts <command> [...args]
+```
 
-- `minepack init` — Initialize a new modpack in the current directory. Use `--force` to re-initialize.
-- `minepack add <mod>` — Add a mod/content by Modrinth URL, ID, or search term. Supports direct URLs and all content types. Use `--download` to fetch the file directly.
-- `minepack list` — List all content in the pack. Supports filtering by type, side, etc.
-- `minepack query <mod>` — Query if a mod/content exists in the pack (by name, filename, or URL).
-- `minepack remove <mod>` — Remove a mod/content from the pack (by name, filename, or URL).
-- `minepack search <term>` — Search Modrinth for mods/content.
-- `minepack update` — Update all mods/content to the latest version for the current Minecraft version and modloader. Prompts if a mod can't be updated.
-- `minepack export modrinth` — Export the pack to Modrinth `.mrpack` format. Supports filtering by side and downloading all files into overrides.
-- `minepack import packwiz [--input DIR] [--output DIR]` — Import a Packwiz project into minepack format. Converts all supported content and copies overrides.
-- `minepack help` — Show help for all commands and flags.
+Or use the compiled binary:
 
-### Content Types Supported
-- mods
-- resourcepacks
-- shaderpacks
-- datapacks
-- plugins
+```
+./build/minepack-win-x64.exe <command> [...args]
+```
 
-### How it works
-- Each content type is stored in its own folder (e.g. `mods/`, `resourcepacks/`, etc.)
-- Each mod/content is represented by a `.json` stub (or direct file) with all metadata
-- All actions are logged verbosely for transparency
-- Exported packs are Modrinth-compliant and ready for upload
+---
 
-### Import/Export
-- **Import:** Converts Packwiz projects (including all supported content types and overrides) to minepack format
-- **Export:** Creates a Modrinth `.mrpack` with correct metadata, file sizes, and loader mapping
+## Commands
 
-## Adding Configs or Other Local Files
+| Command         | Description                                      | Example Usage / Key Flags                      |
+|-----------------|--------------------------------------------------|------------------------------------------------|
+| `init`          | Initialize a new minepack project                | `minepack init [path] [--force] [--verbose]`   |
+| `search`        | Search for a mod on Modrinth                     | `minepack search <query> [--gameVersion <ver>] [--modloader <loader>] [--verbose]` |
+| `add`           | Add a mod to your pack (with dependencies)       | `minepack add <mod> [--verbose]`               |
+| `remove`        | Remove a mod, with dependency/orphan checks      | `minepack remove <mod> [--verbose]`            |
+| `list`          | List all mods in your pack                       | `minepack list [full|basic] [--hashes] [--urls] [--env] [--ids] [--size]` |
+| `map`           | Show a dependency map of your pack               | `minepack map [--full] [--json] [--orphans] [--reverse] [--summary]` |
+| `query`         | Check if a mod is in your pack                   | `minepack query <mod>`                         |
+| `pack`          | Show pack metadata and total mod file size       | `minepack pack`                                |
+| `export`        | Export as Modrinth .mrpack (with overrides)      | `minepack export [--required] [--verbose]`     |
+| `selfupdate`    | Update minepack to the latest release            | `minepack selfupdate [--version <tag>]`        |
 
-The .mrpack format has a system for adding local files, Minepack will take any files you put anywhere inside of it that it doesn't recognize and replicate them to the overrides folder.
+---
 
-## Contributing
-PRs and issues welcome! See the code for details.
+## Development
+- TypeScript, Bun, and modern CLI best practices
+- See `src/commands/` for all command implementations
+- See `package.json` for all build scripts
+
+---
 
 ## License
 MIT

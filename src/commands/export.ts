@@ -1,235 +1,118 @@
-import path from "path";
-import fs from "fs-extra";
+import { registerCommand } from "../lib/command";
+import { Pack } from "../lib/pack";
 import chalk from "chalk";
-import { Command, registerCommand } from "../lib/command";
-import { ContentType } from "../lib/mod";
-import { execSync } from "child_process";
-import { STUB_EXT, getContentFolders, getStubFilesFromTracked } from "../lib/packUtils";
+import fs from "fs";
+import path from "path";
+import { fromPack, MRPackIndex } from "../lib/modrinth/mrpack";
 
-const SUPPORTED_FOLDERS = getContentFolders();
-
-async function collectContent() {
-    const mods: any[] = [];
-    for (const folder of SUPPORTED_FOLDERS) {
-        const dir = path.resolve(process.cwd(), folder);
-        if (!fs.existsSync(dir)) continue;
-        for (const file of fs.readdirSync(dir)) {
-            if (file.endsWith(STUB_EXT)) {
-                const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8'));
-                mods.push({ ...data, _folder: folder, _filename: file, _fullpath: path.join(dir, file) });
-            }
+function copyDirSync(src: string, dest: string) {
+    if (!fs.existsSync(src)) return;
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            copyDirSync(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
         }
-    }
-    return mods;
-}
-
-async function collectOverrides(exportDir: string, modJsonFiles: Set<string>) {
-    // Copy everything except .mp.json stubs into overrides
-    const overridesDir = path.join(exportDir, "overrides");
-    fs.mkdirSync(overridesDir, { recursive: true });
-    for (const folder of SUPPORTED_FOLDERS) {
-        const dir = path.resolve(process.cwd(), folder);
-        if (!fs.existsSync(dir)) continue;
-        for (const file of fs.readdirSync(dir)) {
-            if (file.endsWith(STUB_EXT) || file.endsWith('.mrpack')) continue; // skip stubs and .mrpack files
-            const full = path.join(dir, file);
-            // Copy everything else
-            const destFolder = path.join(overridesDir, folder);
-            fs.mkdirSync(destFolder, { recursive: true });
-            fs.copySync(full, path.join(destFolder, file));
-            console.log(chalk.gray(`[info] Copied to overrides: ${folder}/${file}`));
-        }
-    }
-    // Copy any other folders/files except .mp.json stubs, .mrpack files, and pack.mp.json
-    for (const entry of fs.readdirSync(process.cwd())) {
-        if (SUPPORTED_FOLDERS.includes(entry) || entry === "pack.mp.json" || entry === ".export" || entry.endsWith('.mrpack')) continue;
-        const full = path.join(process.cwd(), entry);
-        fs.copySync(full, path.join(overridesDir, entry));
-        console.log(chalk.gray(`[info] Copied to overrides: ${entry}`));
     }
 }
 
-const exportCommand = new Command({
+registerCommand({
     name: "export",
-    description: "Export the modpack to a distributable format (currently only 'modrinth').",
-    arguments: [
-        { name: "format", aliases: [], description: "Export format (e.g. modrinth)", required: true }
-    ],
+    aliases: ["mrpack", "to-mrpack"],
+    description: "Export the pack as a Modrinth .mrpack file (modrinth.index.json + overrides).",
+    options: [],
     flags: [
-        { name: "side", aliases: [], description: "Only include content for this side (client/server/both)", takesValue: true },
-        { name: "download", aliases: ["d"], description: "Forcibly download all mods and include them in overrides", takesValue: false }
+        {
+            name: "required",
+            description: "Force all environments to 'required' in the export. This can be useful for testing mods that are usually only needed on the server.",
+            short: "r",
+            takesValue: false,
+        },
+        {
+            name: "verbose",
+            description: "Enable verbose output.",
+            short: "v",
+            takesValue: false,
+        }
     ],
-    examples: [
-        { description: "Export to Modrinth format", usage: "minepack export modrinth" },
-        { description: "Export only client-side mods", usage: "minepack export modrinth --side client" },
-        { description: "Export and forcibly download all mods", usage: "minepack export modrinth --download" }
+    exampleUsage: [
+        "minepack export",
+        "minepack export --required"
     ],
-    async execute(args, flags) {
-        const format = args.format as string;
-        if (format !== "modrinth") {
-            console.log(chalk.red("Only 'modrinth' export is currently supported."));
+    execute: async ({ flags }) => {
+        const cwd = process.cwd();
+        const pack = Pack.parse(cwd);
+        if (!pack) {
+            console.error(chalk.redBright.bold(" ✖  Not a minepack project directory."));
             return;
         }
-        const exportDir = path.resolve(process.cwd(), ".export");
-        if (fs.existsSync(exportDir)) fs.rmSync(exportDir, { recursive: true, force: true });
-        fs.mkdirSync(exportDir);
-        console.log(chalk.gray(`[info] Created export working directory at ${exportDir}`));
-
-        // Read pack.mp.json for meta
-        const packJsonPath = path.resolve(process.cwd(), "pack.mp.json");
-        if (!fs.existsSync(packJsonPath)) {
-            console.log(chalk.red("No pack.mp.json found in the current directory."));
-            return;
+        const verbose = !!flags.verbose;
+        const required = !!flags.required;
+        const exportDir = path.join(pack.rootPath, ".exports");
+        const overridesSrc = path.join(pack.rootPath, "overrides");
+        const overridesDest = path.join(exportDir, "overrides");
+        // Clean export dir if exists
+        if (fs.existsSync(exportDir)) {
+            fs.rmSync(exportDir, { recursive: true, force: true });
         }
-        const packJson = JSON.parse(fs.readFileSync(packJsonPath, "utf-8"));
-
-        // Collect all mod/content stubs
-        // const side = flags.side as string | undefined;
-        // const mods = await collectContent(side);
-        // const modJsonFiles = new Set(mods.map(m => m._fullpath));
-        // console.log(chalk.gray(`[info] Found ${mods.length} mod/content stubs for export.`));
-        const side = flags.side as string | undefined;
-        const mods = await collectContent();
-        const modJsonFiles = new Set(mods.map(m => m._fullpath));
-        console.log(chalk.gray(`[info] Found ${mods.length} mod/content stubs for export.`));
-
-        // Build modrinth.index.json
-        const index: any = {
-            formatVersion: 1,
-            game: "minecraft",
-            versionId: packJson.version,
-            name: packJson.name,
-            summary: packJson.description || packJson.name,
-            files: [],
-            dependencies: {},
-        };
-        if (packJson.author) index.author = packJson.author;
-        if (packJson.gameversion) index.dependencies.minecraft = packJson.gameversion;
-        if (packJson.modloader) {
-            // Map loader names for Modrinth compatibility
-            let loaderName = packJson.modloader.name;
-            if (loaderName === "fabric") loaderName = "fabric-loader";
-            if (loaderName === "quilt") loaderName = "quilt-loader";
-            index.dependencies[loaderName] = packJson.modloader.version;
-        }
-
-        for (const mod of mods) {
-            // If forcibly download, download the file and put in overrides, and set envOnly: true
-            if (flags.download && mod.download && mod.download.url) {
-                const overridesModPath = path.join(exportDir, "overrides", mod._folder, mod.filename);
-                fs.mkdirSync(path.dirname(overridesModPath), { recursive: true });
-                console.log(chalk.gray(`[info] Downloading ${mod.name || mod.filename} to overrides...`));
-                const res = await fetch(mod.download.url);
-                if (!res.ok) {
-                    console.log(chalk.red(`[warn] Failed to download ${mod.download.url}`));
-                    continue;
-                }
-                const fileStream = fs.createWriteStream(overridesModPath);
-                if (!res.body) throw new Error("Response body is null");
-                await new Promise<void>(async (resolve, reject) => {
-                    if (res.body) {
-                        const { Readable } = await import("stream");
-                        Readable.fromWeb(res.body as any).pipe(fileStream);
-                        fileStream.on("error", reject);
-                        fileStream.on("finish", resolve);
-                    } else {
-                        reject(new Error("Response body is null"));
-                    }
-                });
-                const fileSize = fs.statSync(overridesModPath).size;
-                console.log(chalk.green(`[info] Downloaded and added to overrides: ${overridesModPath} (${fileSize} bytes)`));
-                index.files.push({
-                    path: `${mod._folder}/${mod.filename}`,
-                    hashes: {
-                        sha1: mod.hashes?.sha1 || "",
-                        sha256: mod.hashes?.sha256 || "",
-                        ...Object.fromEntries(Object.entries(mod.hashes || {}).filter(([k]) => !["sha1","sha256"].includes(k)))
-                    },
-                    env: { client: "required", server: "required" },
-                    downloads: [], // forcibly downloaded, so no download url
-                    fileSize
-                });
-            } else {
-                // Normal stub export
-                let fileSize = mod.fileSize;
-                // If not present, try to stat the file
-                if (!fileSize && mod._folder && mod.filename) {
-                    const filePath = path.resolve(process.cwd(), mod._folder, mod.filename);
-                    if (fs.existsSync(filePath)) {
-                        fileSize = fs.statSync(filePath).size;
-                    }
-                }
-                if (!fileSize) fileSize = 0;
-                // Determine env values based on --side flag
-                let envClient = "required";
-                let envServer = "required";
-                if (flags.side === "client") {
-                    envClient = mod.side === "client" || mod.side === "both" ? "required" : "unsupported";
-                    envServer = mod.side === "server" ? "required" : "unsupported";
-                } else if (flags.side === "server") {
-                    envClient = mod.side === "server" ? "required" : "unsupported";
-                    envServer = mod.side === "server" || mod.side === "both" ? "required" : "unsupported";
-                }
-                console.log(chalk.gray(`[info] Adding to index: ${mod._folder}/${mod.filename} (${fileSize} bytes, client: ${envClient}, server: ${envServer})`));
-                index.files.push({
-                    path: `${mod._folder}/${mod.filename}`,
-                    hashes: {
-                        sha1: mod.hashes?.sha1 || "",
-                        sha256: mod.hashes?.sha256 || "",
-                        ...Object.fromEntries(Object.entries(mod.hashes || {}).filter(([k]) => !["sha1","sha256"].includes(k)))
-                    },
-                    env: {
-                        client: envClient,
-                        server: envServer
-                    },
-                    downloads: mod.download.url ? [mod.download.url] : [],
-                    fileSize
-                });
-            }
-        }
-        // Write modrinth.index.json
-        const indexPath = path.join(exportDir, "modrinth.index.json");
-        fs.writeFileSync(indexPath, JSON.stringify(index, null, 4));
-        console.log(chalk.green(`[info] Wrote modrinth.index.json with ${index.files.length} files.`));
-
+        fs.mkdirSync(exportDir, { recursive: true });
         // Copy overrides
-        await collectOverrides(exportDir, modJsonFiles);
-        console.log(chalk.green(`[info] Copied overrides folder.`));
-
-        // Zip and rename
-        const zipPath = path.resolve(process.cwd(), `${packJson.name.replace(/\s+/g, "_")}-${packJson.version}.mrpack`);
-        let zipped = false;
-        let zipError = null;
-        // Cross-platform zipping
+        if (fs.existsSync(overridesSrc)) {
+            if (verbose) console.log(chalk.gray(`Copying overrides from ${overridesSrc} to ${overridesDest}`));
+            copyDirSync(overridesSrc, overridesDest);
+        } else if (verbose) {
+            console.log(chalk.yellowBright("No overrides directory found, skipping."));
+        }
+        // Create modrinth.index.json
+        if (verbose) console.log(chalk.gray("Building modrinth.index.json..."));
+        const mrpackIndex: MRPackIndex = await fromPack(pack, { required });
+        const indexPath = path.join(exportDir, "modrinth.index.json");
+        fs.writeFileSync(indexPath, JSON.stringify(mrpackIndex, null, 2));
+        if (verbose) console.log(chalk.greenBright.bold(` ✔  Wrote ${indexPath}`));
+        // Zip the .exports directory
+        const outName = `${pack.name.replace(/\s+/g, "_")}-${pack.modloader.name}.mrpack`;
+        const outPath = path.join(pack.rootPath, outName);
+        if (fs.existsSync(outPath)) fs.rmSync(outPath);
+        // Use PowerShell's Compress-Archive if on Windows, otherwise use zip
         const isWin = process.platform === "win32";
-        try {
-            if (isWin) {
-                // Try native PowerShell first
-                const zipCmd = `Compress-Archive -Path '${exportDir}/*' -DestinationPath '${zipPath}.zip' -Force`;
-                console.log(chalk.gray(`[info] Zipping export folder with native PowerShell...`));
-                execSync(zipCmd, { stdio: "inherit", shell: "pwsh.exe" });
+        // Detect if running inside PowerShell
+        const isPwsh = isWin && !!process.env.PSModulePath && !process.env.SHELL && !process.env.TERM_PROGRAM;
+        let zipCmd;
+        if (isWin) {
+            if (isPwsh) {
+                // Directly call Compress-Archive in PowerShell
+                zipCmd = `Compress-Archive -Path "${exportDir}/*" -DestinationPath "${outPath}" -Force`;
             } else {
-                // Use system zip on Linux/macOS
-                const zipCmd = `cd '${exportDir}' && zip -r '${zipPath}.zip' .`;
-                console.log(chalk.gray(`[info] Zipping export folder with system zip...`));
-                execSync(zipCmd, { stdio: "inherit", shell: "/bin/bash" });
+                // Use full path to powershell.exe to invoke Compress-Archive
+                const powershellPath = process.env.SystemRoot
+                    ? `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
+                    : "powershell";
+                zipCmd = `\"${powershellPath}\" Compress-Archive -Path \"${exportDir}/*\" -DestinationPath \"${outPath}\" -Force`;
             }
-            zipped = true;
-        } catch (err) {
-            zipError = err;
+        } else {
+            zipCmd = `zip -r \"${outPath}\" .exports`;
         }
-        if (!zipped) {
-            console.log(chalk.red(`[error] Failed to zip export folder. Please zip the .export folder manually. Error: ${zipError}`));
+        const { execSync } = require("child_process");
+        try {
+            if (verbose) console.log(chalk.gray(`Zipping export directory to ${outPath}...`));
+            execSync(zipCmd, { cwd: pack.rootPath, stdio: verbose ? "inherit" : "ignore" });
+            console.log(chalk.greenBright.bold(` ✔  Exported pack to ${outPath}`));
+        } catch (err: any) {
+            console.error(chalk.redBright.bold(" ✖  Failed to zip export directory: \n", err));
             return;
+        } finally {
+            // Always clean up the .exports directory
+            if (fs.existsSync(exportDir)) {
+                try {
+                    fs.rmSync(exportDir, { recursive: true, force: true });
+                    if (verbose) console.log(chalk.gray(`Cleaned up temporary export directory: ${exportDir}`));
+                } catch (cleanupErr) {
+                    if (verbose) console.log(chalk.redBright(`Failed to clean up .exports: ${cleanupErr}`));
+                }
+            }
         }
-        fs.renameSync(`${zipPath}.zip`, zipPath);
-        console.log(chalk.green(`[info] Exported modpack to ${zipPath}`));
-        // Clean up
-        fs.rmSync(exportDir, { recursive: true, force: true });
-        console.log(chalk.gray(`[info] Cleaned up export working directory.`));
     }
 });
-
-registerCommand(exportCommand);
-
-export { exportCommand };

@@ -1,75 +1,66 @@
-// Command system for minepack CLI
-// Defines Command class, argument structure, and help system
-
-export interface CommandArgument {
+// Command definition and base class for command structure
+export interface CommandOption {
     name: string;
-    aliases?: string[];
     description: string;
     required?: boolean;
-}
-
-export interface CommandExample {
-    description: string;
-    usage: string;
+    exampleValues?: string[];
 }
 
 export interface CommandFlag {
     name: string;
+    description: string;
+    short?: string;
+    takesValue?: boolean;
+    exampleValues?: string[];
+}
+
+// Advanced type inference for flags
+export type FlagType<F extends CommandFlag> = F["takesValue"] extends true ? string : boolean;
+
+export type FlagsType<Flags extends readonly CommandFlag[]> = {
+    [K in Flags[number] as K["name"]]: FlagType<K>;
+};
+
+export interface CommandContext<Flags extends readonly CommandFlag[] = CommandFlag[]> {
+    flags: FlagsType<Flags>;
+    options: string[];
+}
+
+export interface CommandDefinition<Flags extends readonly CommandFlag[] = CommandFlag[]> {
+    name: string;
     aliases?: string[];
     description: string;
-    takesValue?: boolean; // true if the flag expects a value (e.g. --side server)
-    negatable?: boolean; // true if --no-flag disables the flag
+    options?: CommandOption[];
+    flags?: Flags;
+    exampleUsage?: string[];
+    execute: (ctx: CommandContext<Flags>) => Promise<void> | void;
 }
 
-export interface CommandOptions {
+export class Command<Flags extends readonly CommandFlag[] = CommandFlag[]> {
     name: string;
+    aliases: string[];
     description: string;
-    arguments?: CommandArgument[];
-    flags?: CommandFlag[];
-    examples?: CommandExample[];
-    execute: (
-        args: Record<string, string | boolean>,
-        flags: Record<string, string | boolean>,
-        globalFlags: Record<string, boolean>
-    ) => Promise<void> | void;
-}
+    options: CommandOption[];
+    flags: Flags;
+    exampleUsage: string[];
+    execute: (ctx: CommandContext<Flags>) => Promise<void> | void;
 
-export class Command {
-    name: string;
-    description: string;
-    arguments: CommandArgument[];
-    flags: CommandFlag[];
-    examples: CommandExample[];
-    execute: (
-        args: Record<string, string | boolean>,
-        flags: Record<string, string | boolean>,
-        globalFlags: Record<string, boolean>
-    ) => Promise<void> | void;
-
-    constructor(options: CommandOptions) {
-        this.name = options.name;
-        this.description = options.description;
-        this.arguments = options.arguments || [];
-        this.flags = options.flags || [];
-        this.examples = options.examples || [];
-        this.execute = options.execute;
+    constructor(def: CommandDefinition<Flags>) {
+        this.name = def.name;
+        this.aliases = def.aliases || [];
+        this.description = def.description;
+        this.options = def.options || [];
+        this.flags = (def.flags || []) as Flags;
+        this.exampleUsage = def.exampleUsage || [];
+        this.execute = def.execute;
     }
 }
 
-// Command registry and global flag system
-export const commands: Record<string, Command> = {};
-export const commandAliases: Record<string, string> = {};
-export const globalFlags = [
-    { name: 'help', aliases: ['h'], description: 'Show help for a command' }
-];
+// Command registry (global, for auto-registration)
+export const commands: Command<any>[] = [];
 
-export function registerCommand(cmd: Command, aliases: string[] = []) {
-    commands[cmd.name] = cmd;
-    for (const alias of aliases) {
-        commandAliases[alias] = cmd.name;
-    }
-}
-
-export function getCommand(name: string): Command | undefined {
-    return commands[name] || commands[commandAliases[name]];
+export function registerCommand<Flags extends readonly CommandFlag[]>(def: CommandDefinition<Flags>): Command<Flags> {
+    const cmd = new Command(def);
+    commands.push(cmd);
+    return cmd;
 }

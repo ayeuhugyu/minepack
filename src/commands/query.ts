@@ -1,165 +1,100 @@
-import path from "path";
-import fs from "fs-extra";
+import { registerCommand } from "../lib/command";
+import { Pack } from "../lib/pack";
 import chalk from "chalk";
-import { Command, registerCommand } from "../lib/command";
-import { findMod, type ModData } from "../lib/mod";
-import { STUB_EXT, getContentFolders, getStubFilesFromTracked } from "../lib/packUtils";
+import { selectFromList } from "../lib/util";
+import prettyBytes from "pretty-bytes";
 
-function getModsDir() {
-    const modsDir = path.resolve(process.cwd(), "mods");
-    if (!fs.existsSync(modsDir)) {
-        throw new Error("No mods directory found in this pack.");
-    }
-    return modsDir;
-}
-
-function readAllContent(): (ModData & { _filename?: string, _folder?: string })[] {
-    // Use tracked.mp.json for stubs
-    const rootDir = process.cwd();
-    const stubFiles = getStubFilesFromTracked(rootDir);
-    let all: Array<ModData & { _filename?: string, _folder?: string }> = [];
-    for (const stubRelPath of stubFiles) {
-        const absPath = path.join(rootDir, stubRelPath);
-        if (!fs.existsSync(absPath)) continue;
-        try {
-            const data = JSON.parse(fs.readFileSync(absPath, "utf-8"));
-            const folder = stubRelPath.split(path.sep)[0];
-            all.push({ ...data, _filename: path.basename(stubRelPath), _folder: folder });
-        } catch {}
-    }
-    // If no stubs found, search for .jar files
-    if (!all.length) {
-        console.log(chalk.yellow("No stubs found. Searching for .jar files..."));
-        const folders = getContentFolders();
-        for (const folder of folders) {
-            const dir = path.resolve(process.cwd(), folder);
-            if (!fs.existsSync(dir)) continue;
-            for (const file of fs.readdirSync(dir)) {
-                if (file.endsWith(".jar")) {
-                    all.push({ _filename: file, _folder: folder } as any);
-                }
-            }
-        }
-    }
-    return all;
-}
-
-const queryCommand = new Command({
+registerCommand({
     name: "query",
-    description: "Query if a mod or content exists in the modpack.",
-    arguments: [
-        { name: "mod", aliases: [], description: "The mod/content to search for (name, filename, or url)", required: true }
-    ],
-    flags: [],
-    examples: [
-        { description: "Query for a mod by name", usage: "minepack query sodium" },
-        { description: "Query for a resourcepack by name", usage: "minepack query MyResourcepack" },
-        { description: "Query for a mod by filename", usage: "minepack query sodium-fabric-0.5.13+mc1.20.1.jar" },
-        { description: "Query for a mod by url", usage: "minepack query https://cdn.modrinth.com/data/AANobbMI/versions/OihdIimA/sodium-fabric-0.5.13%2Bmc1.20.1.jar" }
-    ],
-    async execute(args) {
-        const userInput = args.mod as string;
-        const rootDir = process.cwd();
-        const folders = getContentFolders();
-        let found = null;
-        let searchStage = 'stubs';
-        // Try exact stub file match first
-        for (const folder of folders) {
-            const stubPath = path.join(rootDir, folder, userInput + STUB_EXT);
-            if (fs.existsSync(stubPath)) {
-                try {
-                    const data = JSON.parse(fs.readFileSync(stubPath, "utf-8"));
-                    found = { ...data, _filename: userInput + STUB_EXT, _folder: folder };
-                    break;
-                } catch {}
-            }
+    aliases: ["hasmod", "inpack"],
+    description: "Query if a mod is present in the current minepack project.",
+    options: [
+        {
+            name: "mod",
+            description: "The mod slug, projectId, or name to query.",
+            required: true,
+            exampleValues: ["sodium", "lithium", "modrinth-xyz123"],
         }
-        let result = null;
-        if (!found) {
-            const content = readAllContent();
-            result = findMod(content, userInput);
-            if (result.mod) {
-                found = result.mod;
-            } else if (result.fuzzy && result.matches.length) {
-                console.log(chalk.yellow("No exact match found in stubs. Top 5 fuzzy matches:"));
-                result.matches.forEach((m, i) => {
-                    console.log(`  [${i + 1}] ${m.name || m._filename} [${m._folder}]`);
-                });
-                const readline = await import('readline/promises');
-                const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-                let idx = parseInt(await rl.question('Select content to query [number, or 0 to cancel]: '), 10) - 1;
-                if (idx >= 0 && idx < result.matches.length) {
-                    found = result.matches[idx];
-                    console.log(chalk.gray(`[info] User selected: ${found.name || found._filename} [${found._folder}]`));
+    ],
+    flags: [
+        {
+            name: "verbose",
+            description: "Enable verbose output.",
+            short: "v",
+            takesValue: false,
+        }
+    ],
+    exampleUsage: [
+        "minepack query sodium",
+        "minepack query lithium --verbose"
+    ],
+    execute: async ({ flags, options }) => {
+        const modQuery = options.join(" ").trim();
+        if (!modQuery) {
+            console.error(chalk.redBright.bold(" ✖  Please provide a mod to query."));
+            return;
+        }
+        const cwd = process.cwd();
+        const pack = Pack.parse(cwd);
+        if (!pack) {
+            console.error(chalk.redBright.bold(" ✖  Not a minepack project directory."));
+            return;
+        }
+        const verbose = !!flags.verbose;
+        const stubs = pack.getStubs(verbose);
+        if (stubs.length === 0) {
+            console.log(chalk.yellowBright.bold("No mods found in this pack."));
+            return;
+        }
+        // 1. Try slug match
+        let target = stubs.find(stub => stub.slug.toLowerCase() === modQuery.toLowerCase());
+        // 2. Try projectId match
+        if (!target) target = stubs.find(stub => stub.projectId.toLowerCase() === modQuery.toLowerCase());
+        // 3. Try exact lowercase name match
+        if (!target) target = stubs.find(stub => stub.name.toLowerCase() === modQuery.toLowerCase());
+        // 4. Fuzzy substring match (top 5)
+        if (!target) {
+            const matches = stubs
+                .map(stub => ({
+                    stub,
+                    score: (stub.name.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                        + (stub.slug.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                        + (stub.projectId.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                }))
+                .filter(x => x.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5);
+            if (matches.length > 0) {
+                const list = matches.map(x => `${chalk.bold(x.stub.name)} (${chalk.yellowBright(x.stub.slug)})`);
+                const idx = await selectFromList([...list, chalk.redBright("None of these")], chalk.yellowBright("No exact match found. Which mod did you mean?"));
+                if (idx < matches.length) {
+                    target = matches[idx].stub;
                 } else {
-                    console.log(chalk.gray("No content selected."));
+                    console.log(chalk.redBright.bold(" ✖  No matching mod found in this pack."));
+                    return;
                 }
-                await rl.close();
-            }
-        }
-        // If not found in stubs, search for .jar files by filename
-        if (!found) {
-            console.log(chalk.gray("[info] No match found in stubs. Searching for .jar files by filename..."));
-            const folders = getContentFolders();
-            let jarCandidates = [];
-            for (const folder of folders) {
-                const dir = path.resolve(process.cwd(), folder);
-                if (!fs.existsSync(dir)) continue;
-                for (const file of fs.readdirSync(dir)) {
-                    if (file.endsWith(".jar")) {
-                        jarCandidates.push({ _filename: file, _folder: folder });
-                    }
-                }
-            }
-            // Try exact match by filename
-            let exact = jarCandidates.find(j => j._filename === userInput);
-            if (exact) {
-                console.log(chalk.gray(`[info] Exact .jar filename match: ${exact._filename} [${exact._folder}]`));
-                found = exact;
-                searchStage = 'jar';
             } else {
-                // Fuzzy: substring match (case-insensitive)
-                let matches = jarCandidates.filter(j => j._filename.toLowerCase().includes(userInput.toLowerCase()));
-                if (matches.length) {
-                    console.log(chalk.yellow("No exact .jar match. Top 5 fuzzy .jar matches:"));
-                    matches.slice(0, 5).forEach((m, i) => {
-                        console.log(`  [${i + 1}] ${m._filename} [${m._folder}]`);
-                    });
-                    const readline = await import('readline/promises');
-                    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-                    let idx = parseInt(await rl.question('Select .jar to query [number, or 0 to cancel]: '), 10) - 1;
-                    if (idx >= 0 && idx < matches.length) {
-                        found = matches[idx];
-                        console.log(chalk.gray(`[info] User selected: ${found._filename} [${found._folder}]`));
-                        searchStage = 'jar';
-                    } else {
-                        console.log(chalk.gray("No .jar selected."));
-                    }
-                    await rl.close();
-                }
+                console.log(chalk.redBright.bold(" ✖  No matching mod found in this pack."));
+                return;
             }
         }
-        if (found && found._filename && found._folder) {
-            console.log(chalk.green(`[query] ${found._filename} [${found._folder}] (${searchStage === 'jar' ? '.jar file' : 'stub'})`));
-            if (searchStage === 'stubs') {
-                // Print all metadata for stub
-                console.log(JSON.stringify(found, null, 2));
-            } else {
-                // .jar file: print basic info
-                const dir = path.resolve(process.cwd(), found._folder);
-                const filePath = path.join(dir, found._filename);
-                const stats = fs.statSync(filePath);
-                console.log(`Filename: ${found._filename}`);
-                console.log(`Folder: ${found._folder}`);
-                console.log(`Size: ${stats.size} bytes`);
-                console.log(`Path: ${filePath}`);
-            }
-        } else if (!found) {
-            console.log(chalk.red("No content found matching that input (in stubs or .jar files)."));
+        // Print info in a colorized, aligned style
+        console.log(chalk.gray("────────────────────────────────────────────────────────────"));
+        console.log(chalk.greenBright.bold(target.name) + chalk.gray(` (${target.slug})`));
+        console.log(chalk.gray("Type: ") + chalk.magentaBright(target.type));
+        console.log(chalk.gray("Project ID: ") + chalk.cyanBright(target.projectId));
+        console.log(chalk.gray("Loader: ") + chalk.yellowBright(target.loader));
+        console.log(chalk.gray("Game Version: ") + chalk.yellowBright(target.gameVersion));
+        console.log(chalk.gray("Environments: ") + chalk.greenBright(`Client: ${target.environments.client}, Server: ${target.environments.server}`));
+        console.log(chalk.gray("File Size: ") + chalk.blueBright(prettyBytes(target.download.size)));
+        console.log(chalk.gray("SHA1: ") + chalk.greenBright(target.hashes.sha1));
+        console.log(chalk.gray("SHA512: ") + chalk.green(target.hashes.sha512));
+        console.log(chalk.gray("Download URL: ") + chalk.yellowBright(target.download.url));
+        if (target.dependencies && target.dependencies.length > 0) {
+            console.log(chalk.gray("Dependencies: ") + chalk.whiteBright(target.dependencies.join(", ")));
+        } else {
+            console.log(chalk.gray("Dependencies: ") + chalk.whiteBright("None"));
         }
+        console.log(chalk.gray("────────────────────────────────────────────────────────────"));
     }
 });
-
-registerCommand(queryCommand);
-
-export { queryCommand };

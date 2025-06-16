@@ -1,168 +1,148 @@
-import path from "path";
-import fs from "fs-extra";
+import { registerCommand } from "../lib/command";
+import { Pack } from "../lib/pack";
+import { Stub } from "../lib/stub";
 import chalk from "chalk";
-import { Command, registerCommand } from "../lib/command";
-import { findMod, type ModData } from "../lib/mod";
-import { removeStubFromTracked, STUB_EXT, getContentFolders, getStubFilesFromTracked } from "../lib/packUtils";
+import { promptUser, selectFromList, multiSelectFromList } from "../lib/util";
+import fs from "fs";
 
-function getModsDir() {
-    const modsDir = path.resolve(process.cwd(), "mods");
-    if (!fs.existsSync(modsDir)) {
-        throw new Error("No mods directory found in this pack.");
-    }
-    return modsDir;
-}
-
-function readAllContent(includeJars = false): (ModData & { _filename?: string, _folder?: string })[] {
-    const folders = getContentFolders();
-    let all: Array<ModData & { _filename?: string, _folder?: string }> = [];
-    for (const folder of folders) {
-        const dir = path.resolve(process.cwd(), folder);
-        if (!fs.existsSync(dir)) continue;
-        for (const file of fs.readdirSync(dir)) {
-            if (file.endsWith(STUB_EXT)) {
-                const data = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8"));
-                // Always ensure hashes object with sha1 and sha256
-                let hashes = data.hashes || {};
-                if (!hashes.sha1) hashes.sha1 = "";
-                if (!hashes.sha256) hashes.sha256 = "";
-                all.push({ ...data, hashes, _filename: file, _folder: folder });
-            } else if (includeJars && file.endsWith(".jar")) {
-                // Guess ContentType from folder
-                let typeEnum = "mod";
-                switch (folder) {
-                    case 'mods': typeEnum = "mod"; break;
-                    case 'resourcepacks': typeEnum = "resourcepack"; break;
-                    case 'shaderpacks': typeEnum = "shaderpack"; break;
-                    case 'datapacks': typeEnum = "datapack"; break;
-                    case 'plugins': typeEnum = "plugin"; break;
-                    default: typeEnum = "unknown";
-                }
-                all.push({
-                    _filename: file,
-                    _folder: folder,
-                    name: file,
-                    filename: file,
-                    type: typeEnum as any,
-                    download: { url: '' },
-                    hashes: { sha1: "", sha256: "" },
-                    fileSize: fs.statSync(path.join(dir, file)).size,
-                });
-            }
-        }
-    }
-    return all;
-}
-
-const removeCommand = new Command({
+registerCommand({
     name: "remove",
-    description: "Remove a mod or content from the modpack.",
-    arguments: [
-        { name: "mod", aliases: [], description: "The mod/content to remove (name, filename, or url)", required: true }
-    ],
-    flags: [],
-    examples: [
-        { description: "Remove a mod by name", usage: "minepack remove sodium" },
-        { description: "Remove a resourcepack by name", usage: "minepack remove MyResourcepack" },
-        { description: "Remove a mod by filename", usage: "minepack remove sodium-fabric-0.5.13+mc1.20.1.jar" },
-        { description: "Remove a mod by url", usage: "minepack remove https://cdn.modrinth.com/data/AANobbMI/versions/OihdIimA/sodium-fabric-0.5.13%2Bmc1.20.1.jar" }
-    ],
-    async execute(args) {
-        const userInput = args.mod as string;
-        const rootDir = process.cwd();
-        const folders = getContentFolders();
-        let toRemove = null;
-        let searchStage = 'stubs';
-        // Try exact stub file match first
-        for (const folder of folders) {
-            const stubPath = path.join(rootDir, folder, userInput + STUB_EXT);
-            if (fs.existsSync(stubPath)) {
-                try {
-                    const data = JSON.parse(fs.readFileSync(stubPath, "utf-8"));
-                    toRemove = { ...data, _filename: userInput + STUB_EXT, _folder: folder };
-                    break;
-                } catch {}
-            }
+    aliases: ["removemod", "rm"],
+    description: "Remove a mod (stub) from the current minepack project, with dependency checks and fuzzy matching.",
+    options: [
+        {
+            name: "mod",
+            description: "The mod slug, projectId, or name to remove.",
+            required: true,
+            exampleValues: ["sodium", "lithium", "modrinth-xyz123"],
         }
-        let result = null;
-        if (!toRemove) {
-            const content = readAllContent();
-            result = findMod(content, userInput);
-            if (result.mod) {
-                toRemove = result.mod;
-            } else if (result.fuzzy && result.matches.length) {
-                console.log(chalk.yellow("No exact match found in stubs. Top 5 fuzzy matches:"));
-                result.matches.forEach((m, i) => {
-                    console.log(`  [${i + 1}] ${m.name || m._filename} [${m._folder}]`);
-                });
-                const readline = await import('readline/promises');
-                const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-                let idx = parseInt(await rl.question('Select content to remove [number, or 0 to cancel]: '), 10) - 1;
-                if (idx >= 0 && idx < result.matches.length) {
-                    toRemove = result.matches[idx];
-                    console.log(chalk.gray(`[info] User selected: ${toRemove.name || toRemove._filename} [${toRemove._folder}]`));
+    ],
+    flags: [
+        {
+            name: "verbose",
+            description: "Enable verbose output.",
+            short: "v",
+            takesValue: false,
+        }
+    ],
+    exampleUsage: [
+        "minepack remove sodium",
+        "minepack rm lithium --verbose"
+    ],
+    execute: async ({ flags, options }) => {
+        const modQuery = options.join(" ").trim();
+        if (!modQuery) {
+            console.error(chalk.redBright.bold(" ✖  Please provide a mod to remove."));
+            return;
+        }
+        const cwd = process.cwd();
+        const pack = Pack.parse(cwd);
+        if (!pack) {
+            console.error(chalk.redBright.bold(" ✖  Not a minepack project directory."));
+            return;
+        }
+        const verbose = !!flags.verbose;
+        const stubs = pack.getStubs(verbose);
+        if (stubs.length === 0) {
+            console.error(chalk.redBright.bold(" ✖  No mods found in this pack."));
+            return;
+        }
+        // 1. Try slug match
+        let target = stubs.find(stub => stub.slug.toLowerCase() === modQuery.toLowerCase());
+        // 2. Try projectId match
+        if (!target) target = stubs.find(stub => stub.projectId.toLowerCase() === modQuery.toLowerCase());
+        // 3. Try exact lowercase name match
+        if (!target) target = stubs.find(stub => stub.name.toLowerCase() === modQuery.toLowerCase());
+        // 4. Fuzzy substring match (top 5)
+        if (!target) {
+            const matches = stubs
+                .map(stub => ({
+                    stub,
+                    score: (stub.name.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                        + (stub.slug.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                        + (stub.projectId.toLowerCase().includes(modQuery.toLowerCase()) ? 1 : 0)
+                }))
+                .filter(x => x.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5);
+            if (matches.length > 0) {
+                const list = matches.map(x => `${chalk.bold(x.stub.name)} (${chalk.yellowBright(x.stub.slug)})`);
+                const idx = await selectFromList([...list, chalk.redBright("None of these")], chalk.yellowBright("No exact match found. Which mod did you mean?"));
+                if (idx < matches.length) {
+                    target = matches[idx].stub;
                 } else {
-                    console.log(chalk.gray("No content selected."));
+                    console.log(chalk.redBright.bold(" ✖  No matching mod found. Please manually delete the stub file in the stubs directory."));
+                    return;
                 }
-                await rl.close();
-            }
-        }
-        // If not found in stubs, search for .jar files by filename
-        if (!toRemove) {
-            console.log(chalk.gray("[info] No match found in stubs. Searching for .jar files by filename..."));
-            const folders = getContentFolders();
-            let jarCandidates = [];
-            for (const folder of folders) {
-                const dir = path.resolve(process.cwd(), folder);
-                if (!fs.existsSync(dir)) continue;
-                for (const file of fs.readdirSync(dir)) {
-                    if (file.endsWith(".jar")) {
-                        jarCandidates.push({ _filename: file, _folder: folder });
-                    }
-                }
-            }
-            // Try exact match by filename
-            let exact = jarCandidates.find(j => j._filename === userInput);
-            if (exact) {
-                console.log(chalk.gray(`[info] Exact .jar filename match: ${exact._filename} [${exact._folder}]`));
-                toRemove = exact;
-                searchStage = 'jar';
             } else {
-                // Fuzzy: substring match (case-insensitive)
-                let matches = jarCandidates.filter(j => j._filename.toLowerCase().includes(userInput.toLowerCase()));
-                if (matches.length) {
-                    console.log(chalk.yellow("No exact .jar match. Top 5 fuzzy .jar matches:"));
-                    matches.slice(0, 5).forEach((m, i) => {
-                        console.log(`  [${i + 1}] ${m._filename} [${m._folder}]`);
-                    });
-                    const readline = await import('readline/promises');
-                    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-                    let idx = parseInt(await rl.question('Select .jar to remove [number, or 0 to cancel]: '), 10) - 1;
-                    if (idx >= 0 && idx < matches.length) {
-                        toRemove = matches[idx];
-                        console.log(chalk.gray(`[info] User selected: ${toRemove._filename} [${toRemove._folder}]`));
-                        searchStage = 'jar';
-                    } else {
-                        console.log(chalk.gray("No .jar selected."));
+                console.log(chalk.redBright.bold(" ✖  No matching mod found. Please manually delete the stub file in the stubs directory."));
+                return;
+            }
+        }
+        // Check for dependents
+        const dependents = stubs.filter(stub => stub.dependencies && (stub.dependencies.includes(target.slug) || stub.dependencies.includes(target.projectId)));
+        if (dependents.length > 0) {
+            console.log(chalk.yellowBright.bold(" ⚠  The following mods depend on this mod:"));
+            dependents.forEach(dep => {
+                console.log(`  ${chalk.bold(dep.name)} (${chalk.yellowBright(dep.slug)})`);
+            });
+            const depNames = dependents.map(dep => `${chalk.bold(dep.name)} (${chalk.yellowBright(dep.slug)})`);
+            const options = [
+                ...depNames,
+                chalk.redBright("Cancel (do not remove anything)")
+            ];
+            const selected = await multiSelectFromList(options, chalk.yellowBright("Select any dependent mods you would also like to remove, or choose cancel:"));
+            if (selected.includes(options.length - 1) || selected.length === 0) {
+                console.log(chalk.gray("Aborted mod removal."));
+                return;
+            }
+            // Remove selected dependents
+            for (const idx of selected) {
+                if (idx < dependents.length) {
+                    const dep = dependents[idx];
+                    const depStubFile = `${cwd}/stubs/${dep.name}.mp.json`;
+                    if (fs.existsSync(depStubFile)) {
+                        fs.unlinkSync(depStubFile);
+                        console.log(chalk.greenBright.bold(` ✔  Removed dependent '${dep.name}' (${dep.slug}) from the pack!`));
                     }
-                    await rl.close();
                 }
             }
         }
-        if (toRemove && toRemove._filename && toRemove._folder) {
-            const dir = path.resolve(process.cwd(), toRemove._folder);
-            const filePath = path.join(dir, toRemove._filename);
-            fs.unlinkSync(filePath);
-            if (toRemove._filename.endsWith(STUB_EXT)) {
-                removeStubFromTracked(process.cwd(), path.relative(process.cwd(), filePath));
+        // Remove stub file
+        const stubFile = `${cwd}/stubs/${target.name}.mp.json`;
+        if (fs.existsSync(stubFile)) {
+            fs.unlinkSync(stubFile);
+            console.log(chalk.greenBright.bold(` ✔  Removed '${target.name}' (${target.slug}) from the pack!`));
+        } else {
+            console.log(chalk.redBright.bold(` ✖  Stub file not found at ${stubFile}.`));
+        }
+
+        // Orphaned dependency check
+        if (target.dependencies && target.dependencies.length > 0) {
+            // Find stubs for each dependency
+            const orphanCandidates = target.dependencies
+                .map(depId => stubs.find(stub => stub.projectId === depId || stub.slug === depId))
+                .filter(Boolean) as Stub[];
+            // For each, check if any other stub depends on it
+            const trulyOrphaned = orphanCandidates.filter(depStub =>
+                !stubs.some(s => s !== target && s.dependencies && (s.dependencies.includes(depStub.slug) || s.dependencies.includes(depStub.projectId)))
+            );
+            if (trulyOrphaned.length > 0) {
+                console.log(chalk.yellowBright.bold("The following mods were dependencies of the removed mod, and are no longer required by any other mod:"));
+                trulyOrphaned.forEach((stub, i) => {
+                    console.log(`  ${chalk.gray(i + 1 + ".")} ${chalk.bold(stub.name)} (${chalk.yellowBright(stub.slug)})`);
+                });
+                const orphanTitles = trulyOrphaned.map(stub => `${stub.name} (${stub.slug})`);
+                const selected = await multiSelectFromList(orphanTitles, chalk.blueBright("Select any orphaned dependencies you would also like to remove (toggle with numbers, 'a' for all, 'd' for done): "));
+                for (const idx of selected) {
+                    const stub = trulyOrphaned[idx];
+                    const stubFile = `${cwd}/stubs/${stub.name}.mp.json`;
+                    if (fs.existsSync(stubFile)) {
+                        fs.unlinkSync(stubFile);
+                        console.log(chalk.greenBright.bold(` ✔  Removed orphaned dependency '${stub.name}' (${stub.slug}) from the pack!`));
+                    }
+                }
             }
-            console.log(chalk.green(`Removed: ${toRemove._filename} [${toRemove._folder}] (${searchStage === 'jar' ? '.jar file' : 'stub'})`));
-        } else if (!toRemove) {
-            console.log(chalk.red("No content found matching that input (in stubs or .jar files)."));
         }
     }
 });
-
-registerCommand(removeCommand);
-
-export { removeCommand };
