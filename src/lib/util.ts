@@ -167,29 +167,46 @@ export async function multiSelectFromList(list: string[], question: string): Pro
     const stdout = process.stdout;
     let selected: Set<number> = new Set();
     let done = false;
+    // Print the question and the list once
+    stdout.write(question + "\n");
+    list.forEach((item, index) => {
+        const prefix = selected.has(index) ? chalk.greenBright("[x]") : chalk.gray("[ ]");
+        stdout.write(`${prefix} ${chalk.gray(`${index + 1}.`)} ${item}\n`);
+    });
+    const promptLine = () => chalk.blueBright("Type numbers to toggle (e.g. 1 3 5), 'a' for all, 'd' for done: ");
+    stdout.write(promptLine());
+    // Save the number of lines above the prompt
+    const listLines = list.length + 1; // question + list
     while (!done) {
-        stdout.write("\n" + question + "\n");
-        list.forEach((item, index) => {
-            const prefix = selected.has(index) ? chalk.greenBright("[x]") : chalk.gray("[ ]");
-            stdout.write(`${prefix} ${chalk.gray(`${index + 1}.`)} ${item}\n`);
-        });
-        stdout.write(chalk.blueBright("Type numbers to toggle (e.g. 1 3 5), 'a' for all, 'd' for done: "));
         stdin.resume();
         const input: string = await new Promise(resolve => stdin.once("data", data => resolve(data.toString().trim())));
+        // Move cursor up to the prompt line, clear it, and reprint prompt
+        stdout.moveCursor(0, -1);
+        stdout.clearLine(0);
         if (input.toLowerCase() === "d" || input.toLowerCase() === "done") {
-            done = true;
             break;
         }
         if (input.toLowerCase() === "a" || input.toLowerCase() === "all") {
             selected = new Set(list.map((_, i) => i));
-            continue;
+        } else {
+            const nums = input.split(/\s+/).map(s => parseInt(s, 10) - 1).filter(i => i >= 0 && i < list.length);
+            nums.forEach(i => {
+                if (selected.has(i)) selected.delete(i);
+                else selected.add(i);
+            });
         }
-        const nums = input.split(/\s+/).map(s => parseInt(s, 10) - 1).filter(i => i >= 0 && i < list.length);
-        nums.forEach(i => {
-            if (selected.has(i)) selected.delete(i);
-            else selected.add(i);
-        });
+        // Redraw only the list (not the question), then prompt
+        stdout.moveCursor(0, -list.length);
+        for (let i = 0; i < list.length; i++) {
+            stdout.clearLine(0);
+            const prefix = selected.has(i) ? chalk.greenBright("[x]") : chalk.gray("[ ]");
+            stdout.write(`${prefix} ${chalk.gray(`${i + 1}.`)} ${list[i]}\n`);
+        }
+        stdout.clearLine(0);
+        stdout.write(promptLine());
     }
+    // Move cursor down to next line after done
+    stdout.write("\n");
     stdin.pause();
     return Array.from(selected);
 }
