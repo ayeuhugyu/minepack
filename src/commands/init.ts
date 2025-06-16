@@ -1,10 +1,11 @@
 import { registerCommand } from "../lib/command";
 import { promptUser, selectFromList, statusMessage } from "../lib/util";
 import fs from "fs";
-import pathModule from "path";
+import path from "path";
 import chalk from "chalk";
 import { Pack } from "../lib/pack";
 import { ModLoaders } from "../lib/loaderVersions";
+import { projectReadmeContent } from "../lib/projectReadmeContent";
 
 registerCommand({
     name: "init",
@@ -40,19 +41,19 @@ registerCommand({
     ],
     execute: async ({ flags, options }) => {
         const inputPath = options[0] || process.cwd();
-        const path = pathModule.isAbsolute(inputPath) ? inputPath : pathModule.resolve(process.cwd(), inputPath);
-        if (flags.verbose) console.log(chalk.gray(`Initializing a new minepack project in ${chalk.yellowBright(path)}`));
+        const projectPath = path.isAbsolute(inputPath) ? inputPath : path.resolve(process.cwd(), inputPath);
+        if (flags.verbose) console.log(chalk.gray(`Initializing a new minepack project in ${chalk.yellowBright(projectPath)}`));
 
         // Check if the directory already exists
-        if (!fs.existsSync(path)) {
-            fs.mkdirSync(path);
-            if (flags.verbose) console.log(chalk.gray(`Created directory: ${chalk.yellowBright(path)}`));
+        if (!fs.existsSync(projectPath)) {
+            fs.mkdirSync(projectPath);
+            if (flags.verbose) console.log(chalk.gray(`Created directory: ${chalk.yellowBright(projectPath)}`));
         }
-        if (Pack.isPack(path) && !flags.force) {
+        if (Pack.isPack(projectPath) && !flags.force) {
             console.error(chalk.redBright.bold(" ✖  This directory is already a minepack project. Pass --force to reinitialize it."));
             return;
         }
-        if (Pack.isPack(path) && flags.force) {
+        if (Pack.isPack(projectPath) && flags.force) {
             console.log(chalk.yellowBright.bold(" ⚠  Reinitializing existing minepack project..."));
         }
 
@@ -112,7 +113,7 @@ registerCommand({
             name,
             author,
             description,
-            path,
+            projectPath,
             {
                 name: loaderData.name,
                 version: userInputtedModloaderVersion
@@ -120,17 +121,34 @@ registerCommand({
             gameversion
         );
 
-        if (flags.verbose) console.log(chalk.gray(`Creating pack file at ${chalk.yellowBright(path + "/pack.mp.json")}`));
-        if (flags.force && Pack.isPack(path)) {
+        if (flags.verbose) console.log(chalk.gray(`Creating pack file at ${chalk.yellowBright(projectPath + "/pack.mp.json")}`));
+        if (flags.force && Pack.isPack(projectPath)) {
             console.log(chalk.yellowBright.bold(" ⚠  Overwriting existing pack file..."));
         }
 
-        if (!fs.existsSync(path + "/tracked.mp.json")) {
-            if (flags.verbose) console.log(chalk.gray(`Creating tracked files list at ${chalk.yellowBright(path + "/tracked.mp.json")}`));
-            fs.writeFileSync(path + "/tracked.mp.json", JSON.stringify([]));
+        const stubsDir = path.join(projectPath, "stubs");
+        if (!fs.existsSync(stubsDir)) {
+            if (flags.verbose) console.log(chalk.gray(`Creating stubs directory at ${chalk.yellowBright(stubsDir)}`));
+            fs.mkdirSync(stubsDir);
+        }
+
+        const overridesDir = path.join(projectPath, "overrides");
+        if (!fs.existsSync(overridesDir)) {
+            if (flags.verbose) console.log(chalk.gray(`Creating overrides directory at ${chalk.yellowBright(overridesDir)}`));
+            fs.mkdirSync(overridesDir);
+        }
+
+        // Create a README.md file if it doesn't exist
+        const readmePath = path.join(projectPath, "README.md");
+        if (!fs.existsSync(readmePath)) {
+            if (flags.verbose) console.log(chalk.gray(`Creating README.md at ${chalk.yellowBright(readmePath)}`));
+            fs.writeFileSync(
+                readmePath,
+                projectReadmeContent
+            );
         }
 
         pack.write(flags.verbose);
-        console.log(chalk.greenBright.bold(" ✔  Successfully initialized new minepack project!"));
+        console.log(chalk.greenBright.bold(" ✔  Successfully initialized new minepack project!\nSee the README.md file created within the project for a little more information on how to use minepack."));
     }
 });

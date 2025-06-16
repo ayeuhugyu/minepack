@@ -87,50 +87,48 @@ export class Pack {
     }
 
     getTrackedFiles(verbose: boolean = false): string[] {
-        const trackedFilePath = `${this.rootPath}/tracked.mp.json`;
-        if (verbose) {
-            console.log(chalk.gray(`Reading tracked files from ${trackedFilePath}...`));
-        }
-        let tracked;
+        const stubsDir = `${this.rootPath}/stubs`;
+        let files: string[] = [];
         try {
-            tracked = JSON.parse(fs.readFileSync(trackedFilePath, 'utf-8'));
-        } catch (err) {
-            console.error(chalk.redBright.bold(` ✖  Failed to read tracked files: ${err}`));
-            return [];
-        }
-        if (!Array.isArray(tracked)) {
-            console.error(chalk.redBright.bold(" ✖  Invalid tracked files format. Expected an array."));
-            return [];
-        }
-        const files = tracked.map((file: string) => {
-            if (typeof file !== "string") {
+            if (!fs.existsSync(stubsDir)) {
                 if (verbose) {
-                    console.error(chalk.redBright.bold(" ✖  Invalid tracked file format. Expected a string."));
+                    console.log(chalk.gray(`Stubs directory does not exist at ${stubsDir}. It will be created.`));
                 }
-                return "";
+                fs.mkdirSync(stubsDir, { recursive: true });
+                return [];
             }
+            files = fs.readdirSync(stubsDir)
+                .filter(file => file.endsWith('.mp.json'))
+                .map(file => `${stubsDir}/${file}`);
             if (verbose) {
-                console.log(chalk.gray(`Tracked file: ${file}`));
+                files.forEach(file => console.log(chalk.gray(`Tracked file: ${file}`)));
+                console.log(chalk.gray(`Total tracked files: ${files.length}`));
             }
-            return file;
-        }).filter((file: string) => file !== "");
-        if (verbose) {
-            console.log(chalk.gray(`Total tracked files: ${files.length}`));
+        } catch (err) {
+            console.error(chalk.redBright.bold(` ✖  Failed to read stubs directory: ${err}`));
+            return [];
         }
         return files;
     }
 
     addTrackedFile(file: string, verbose: boolean = false): void {
-        const trackedFiles = this.getTrackedFiles(verbose);
-        if (trackedFiles.includes(file)) {
-            console.warn(chalk.yellowBright.bold(` ⚠  File ${file} is already tracked.`));
+        const stubsDir = `${this.rootPath}/stubs`;
+        if (!fs.existsSync(stubsDir)) {
+            fs.mkdirSync(stubsDir, { recursive: true });
+            if (verbose) {
+                console.log(chalk.gray(`Created stubs directory at ${stubsDir}.`));
+            }
+        }
+        const fileName = file.endsWith('.mp.json') ? file : `${file}.mp.json`;
+        const filePath = `${stubsDir}/${fileName}`;
+        if (fs.existsSync(filePath)) {
+            console.warn(chalk.yellowBright.bold(` ⚠  File ${filePath} is already tracked.`));
             return;
         }
-        trackedFiles.push(file);
-        fs.writeFileSync(`${this.rootPath}/tracked.mp.json`, JSON.stringify(trackedFiles, null, 2));
+        fs.writeFileSync(filePath, '{}');
         if (verbose) {
-            console.log(chalk.gray(`Tracked files updated. New count: ${trackedFiles.length}`));
-            console.log(chalk.greenBright.bold(` ✔  Added ${file} to tracked files.`));
+            console.log(chalk.gray(`Tracked files updated. New count: ${this.getTrackedFiles().length + 1}`));
+            console.log(chalk.greenBright.bold(` ✔  Added ${filePath} to tracked files.`));
         }
     }
 }
