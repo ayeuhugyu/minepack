@@ -182,7 +182,7 @@ export async function findProjectBySearch(query: string, packData?: Pack, verbos
             });
             const selectList = await selectFromList(
                 Object.values(list),
-                chalk.blueBright.bold(`Multiple results found. Select from the top ${Object.values(list).length} results: `)
+                chalk.blueBright.bold(`Multiple results found for "${query}". Select from the top ${Object.values(list).length} results: `)
             );
             // Only filter for return value if packData is present
             const matchingProjects = packData
