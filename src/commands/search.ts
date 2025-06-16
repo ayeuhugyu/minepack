@@ -58,7 +58,7 @@ registerCommand({
         
         const project = await findProject(query, packData, !!flags.verbose);
         if (!project) {
-            console.log(chalk.redBright.bold(" ✖  No matching mod found."));
+            console.log(chalk.redBright.bold(" ✖  No matching project found."));
             return;
         }
 
