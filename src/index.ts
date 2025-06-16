@@ -14,6 +14,7 @@ import "./commands/list";
 import "./commands/map";
 import "./commands/update";
 import "./commands/query";
+import "./commands/pack";
 
 // Command line parser
 function parseArgs<Flags extends readonly CommandFlag[]>(argv: string[], command: { flags: Flags }): CommandContext<Flags> {
