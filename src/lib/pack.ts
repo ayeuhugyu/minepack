@@ -12,14 +12,16 @@ export class Pack {
         version: string;
     }
     gameVersion: string;
+    version: string;
 
-    constructor(name: string, author: string, description: string, rootPath: string, modloader: { name: string; version: string }, gameVersion: string) {
+    constructor(name: string, author: string, description: string, rootPath: string, modloader: { name: string; version: string }, gameVersion: string, version: string = "1.0.0") {
         this.name = name;
         this.author = author;
         this.description = description;
         this.rootPath = rootPath;
         this.modloader = modloader;
         this.gameVersion = gameVersion;
+        this.version = version;
     }
 
     static isPack(path: string): boolean {
@@ -63,6 +65,8 @@ export class Pack {
             if (typeof packData.gameVersion !== "string") {
                 throw new Error("Invalid or missing property: gameVersion");
             }
+            // Version is optional, default to 1.0.0
+            const version = typeof packData.version === "string" ? packData.version : "1.0.0";
 
             return new Pack(
                 packData.name,
@@ -70,7 +74,8 @@ export class Pack {
                 packData.description,
                 path,
                 packData.modloader,
-                packData.gameVersion
+                packData.gameVersion,
+                version
             );
         } catch (error) {
             console.error(chalk.redBright.bold(` ✖  Failed to parse pack at ${path}:`, error));
@@ -80,6 +85,7 @@ export class Pack {
 
     write(verbose: boolean = false): void {
         const packFile = `${this.rootPath}/pack.mp.json`;
+        // Write version property
         fs.writeFileSync(packFile, JSON.stringify(this, null, 2));
         if (verbose) {
             console.log(chalk.gray(`Writing pack file to ${packFile}...`));

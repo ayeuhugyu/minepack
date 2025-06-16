@@ -60,6 +60,7 @@ registerCommand({
         const name = await promptUser(chalk.blueBright.bold("Pack name:") + chalk.reset());
         const description = await promptUser(chalk.blueBright.bold("Pack description:") + chalk.reset());
         const author = await promptUser(chalk.blueBright.bold("Author name:") + chalk.reset());
+        const version = (await promptUser(chalk.blueBright.bold("Pack version ") + chalk.gray("(default 1.0.0):") + chalk.reset())) || "1.0.0";
         let gameversion: string;
         while (true) {
             gameversion = await promptUser(chalk.blueBright.bold("Game version ") + chalk.gray("(e.g. 1.20.1):") + chalk.reset());
@@ -118,7 +119,8 @@ registerCommand({
                 name: loaderData.name,
                 version: userInputtedModloaderVersion
             },
-            gameversion
+            gameversion,
+            version
         );
 
         if (flags.verbose) console.log(chalk.gray(`Creating pack file at ${chalk.yellowBright(projectPath + "/pack.mp.json")}`));

@@ -32,6 +32,7 @@ registerCommand({
         console.log(chalk.gray("────────────────────────────────────────────────────────────"));
         console.log(chalk.greenBright.bold(pack.name) + chalk.gray(` by `) + chalk.cyanBright(pack.author));
         console.log(chalk.gray("Description: ") + chalk.whiteBright(pack.description));
+        console.log(chalk.gray("Version: ") + chalk.yellowBright(pack.version));
         console.log(chalk.gray("Game Version: ") + chalk.yellowBright(pack.gameVersion));
         console.log(chalk.gray("Modloader: ") + chalk.yellowBright(`${pack.modloader.name} ${pack.modloader.version}`));
         console.log(chalk.gray("Number of Mods: ") + chalk.blueBright(stubs.length.toString()));
