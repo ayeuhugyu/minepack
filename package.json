@@ -19,7 +19,7 @@
     "compile:linux-x64-musl": "bun build src/main.ts --compile --target=bun-linux-x64-musl --outfile ./build/minepack-linux-x64-musl",
     "compile:linux-arm64-musl": "bun build src/main.ts --compile --target=bun-linux-arm64-musl --outfile ./build/minepack-linux-arm64-musl",
     "compile:all": "bun run compile:win-x64 && bun run compile:mac-x64 && bun run compile:mac-arm64 && bun run compile:linux-x64 && bun run compile:linux-arm64 && bun run compile:linux-x64-musl && bun run compile:linux-arm64-musl",
-    "minepack": "bun run src/main.ts"
+    "minepack": "bun run /src/index.ts"
   },
   "dependencies": {
     "@types/fs-extra": "^11.0.4",

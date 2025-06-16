@@ -7,6 +7,7 @@ import "./commands/version";
 import "./commands/help";
 import "./commands/test";
 import "./commands/init";
+import "./commands/search";
 
 // Command line parser
 function parseArgs<Flags extends readonly CommandFlag[]>(argv: string[], command: { flags: Flags }): CommandContext<Flags> {
