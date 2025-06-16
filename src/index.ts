@@ -10,6 +10,8 @@ import "./commands/init";
 import "./commands/search";
 import "./commands/add";
 import "./commands/remove";
+import "./commands/list";
+import "./commands/map";
 
 // Command line parser
 function parseArgs<Flags extends readonly CommandFlag[]>(argv: string[], command: { flags: Flags }): CommandContext<Flags> {
