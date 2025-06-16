@@ -1,5 +1,6 @@
 import fs from "fs";
 import chalk from "chalk";
+import { Stub } from "./stub"; // Adjust the import path as necessary
 
 export class Pack {
     name: string;
@@ -130,5 +131,32 @@ export class Pack {
             console.log(chalk.gray(`Tracked files updated. New count: ${this.getTrackedFiles().length + 1}`));
             console.log(chalk.greenBright.bold(` ✔  Added ${filePath} to tracked files.`));
         }
+    }
+
+    getStubs(verbose: boolean = false): Stub[] {
+        const stubsDir = `${this.rootPath}/stubs`;
+        let stubs: Stub[] = [];
+        try {
+            if (!fs.existsSync(stubsDir)) {
+                if (verbose) {
+                    console.log(chalk.gray(`Stubs directory does not exist at ${stubsDir}.`));
+                }
+                return [];
+            }
+            const files = fs.readdirSync(stubsDir)
+                .filter(file => file.endsWith('.mp.json'));
+            for (const file of files) {
+                const stub = Stub.fromFile(this.rootPath, file.replace(/\.mp\.json$/, ""), verbose);
+                if (stub) stubs.push(stub);
+            }
+            if (verbose) {
+                stubs.forEach(stub => console.log(chalk.gray(`Stub: ${stub.name} (${stub.projectId})`)));
+                console.log(chalk.gray(`Total stubs: ${stubs.length}`));
+            }
+        } catch (err) {
+            console.error(chalk.redBright.bold(` ✖  Failed to read stubs directory: ${err}`));
+            return [];
+        }
+        return stubs;
     }
 }

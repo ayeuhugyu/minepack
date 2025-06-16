@@ -22,8 +22,6 @@ export interface ModrinthVersion {
     files: ModrinthVersionFile[];
     game_versions: string[];
     loaders: string[];
-    client_side: "required" | "optional" | "unsupported";
-    server_side: "required" | "optional" | "unsupported";
     dependencies: ModrinthVersionDependency[];
 }
 
@@ -44,6 +42,12 @@ export async function getVersionId(project: ModrinthProject, packData: Pack): Pr
     // Prefer the latest version (assuming sorted by date desc)
     const version = matches[0];
     return version.id;
+}
+
+const typeToPath = {
+    "mod": "mods",
+    "resourcepack": "resourcepacks",
+    "shader": "shaderpacks",
 }
 
 // Create a stub from a ModrinthProject and Pack
@@ -76,12 +80,12 @@ export async function projectToStub(project: ModrinthProject, packData: Pack) {
         download: {
             versionId: version.id,
             url: file.url,
-            path: file.filename,
+            path: typeToPath[project.project_type] + "/" + file.filename,
             size: file.size,
         },
         environments: {
-            client: version.client_side,
-            server: version.server_side,
+            client: project.client_side === "unknown" ? "optional" : project.client_side,
+            server: project.server_side === "unknown" ? "optional" : project.server_side,
         },
         dependencies: version.dependencies
             .filter((dep: any) => dep.dependency_type === "required" && dep.project_id)
