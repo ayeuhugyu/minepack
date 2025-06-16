@@ -87,52 +87,6 @@ export class Pack {
         console.log(chalk.greenBright.bold(` ✔  Pack file written to ${packFile}`));
     }
 
-    getTrackedFiles(verbose: boolean = false): string[] {
-        const stubsDir = `${this.rootPath}/stubs`;
-        let files: string[] = [];
-        try {
-            if (!fs.existsSync(stubsDir)) {
-                if (verbose) {
-                    console.log(chalk.gray(`Stubs directory does not exist at ${stubsDir}. It will be created.`));
-                }
-                fs.mkdirSync(stubsDir, { recursive: true });
-                return [];
-            }
-            files = fs.readdirSync(stubsDir)
-                .filter(file => file.endsWith('.mp.json'))
-                .map(file => `${stubsDir}/${file}`);
-            if (verbose) {
-                files.forEach(file => console.log(chalk.gray(`Tracked file: ${file}`)));
-                console.log(chalk.gray(`Total tracked files: ${files.length}`));
-            }
-        } catch (err) {
-            console.error(chalk.redBright.bold(` ✖  Failed to read stubs directory: ${err}`));
-            return [];
-        }
-        return files;
-    }
-
-    addTrackedFile(file: string, verbose: boolean = false): void {
-        const stubsDir = `${this.rootPath}/stubs`;
-        if (!fs.existsSync(stubsDir)) {
-            fs.mkdirSync(stubsDir, { recursive: true });
-            if (verbose) {
-                console.log(chalk.gray(`Created stubs directory at ${stubsDir}.`));
-            }
-        }
-        const fileName = file.endsWith('.mp.json') ? file : `${file}.mp.json`;
-        const filePath = `${stubsDir}/${fileName}`;
-        if (fs.existsSync(filePath)) {
-            console.warn(chalk.yellowBright.bold(` ⚠  File ${filePath} is already tracked.`));
-            return;
-        }
-        fs.writeFileSync(filePath, '{}');
-        if (verbose) {
-            console.log(chalk.gray(`Tracked files updated. New count: ${this.getTrackedFiles().length + 1}`));
-            console.log(chalk.greenBright.bold(` ✔  Added ${filePath} to tracked files.`));
-        }
-    }
-
     getStubs(verbose: boolean = false): Stub[] {
         const stubsDir = `${this.rootPath}/stubs`;
         let stubs: Stub[] = [];
