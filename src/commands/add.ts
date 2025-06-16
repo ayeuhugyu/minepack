@@ -85,11 +85,19 @@ registerCommand({
                     }
                 });
                 // Ask user how to proceed
-                const depPrompt = await promptUser(chalk.yellowBright("Add all dependencies? (Y = all, N = none, S = select): "));
+                async function askDepPrompt(): Promise<"all"|"none"|"select"> {
+                    const depPrompt = await promptUser(chalk.yellowBright("Add all dependencies? (Y = all, N = none, S = select): "));
+                    if (!depPrompt || depPrompt.trim().toLowerCase().startsWith("y")) return "all";
+                    if (depPrompt.trim().toLowerCase().startsWith("n")) return "none";
+                    if (depPrompt.trim().toLowerCase().startsWith("s")) return "select";
+                    console.error(chalk.redBright.bold(" ✖  Please enter Y, N, or S."));
+                    return askDepPrompt();
+                }
                 let toAdd: typeof depProjects = [];
-                if (!depPrompt || depPrompt.trim().toLowerCase().startsWith("y")) {
+                const depChoice = await askDepPrompt();
+                if (depChoice === "all") {
                     toAdd = depProjects.filter(({ depProject }) => !!depProject);
-                } else if (depPrompt.trim().toLowerCase().startsWith("s")) {
+                } else if (depChoice === "select") {
                     // Use multiSelectFromList for selection
                     const depTitles = depProjects
                         .filter(({ depProject }) => !!depProject)
