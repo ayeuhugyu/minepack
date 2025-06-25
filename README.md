@@ -1,16 +1,14 @@
 # Minepack
 
-A modern CLI tool for managing Minecraft modpacks, with robust dependency management, beautiful output, and Modrinth integration.
+A CLI tool for managing Minecraft modpacks, with extremely colorful output and exporting to modrinth's modpack format.
 
 ---
 
 ## Features
-- **Create, search, add, remove, and list mods** for your pack
-- **Dependency resolution** and interactive selection
-- **Colorful, aligned, emoji-rich CLI output**
+- **Create, search, add, remove, and list mods**
+- **Dependency resolution**
 - **Export to Modrinth .mrpack** format (with overrides and versioning)
 - **Self-update** from GitHub releases
-- **Powerful map and query commands**
 
 ---
 
@@ -49,29 +47,29 @@ This will attempt to detect your platform and build the correct binary in the `b
 #### d. Manual Compilation (If auto-detect fails)
 
 - **Windows x64:**
-  ```
+```
 bun compile:win-x64
-  ```
+```
 - **Mac x64:**
-  ```
+```
 bun compile:mac-x64
-  ```
+```
 - **Mac ARM64:**
-  ```
+```
 bun compile:mac-arm64
-  ```
+```
 - **Linux x64:**
-  ```
+```
 bun compile:linux-x64
-  ```
+```
 - **Linux ARM64:**
-  ```
+```
 bun compile:linux-arm64
-  ```
+```
 - **All Platforms All At Once:**
-  ```
+```
 bun compile:all
-  ```
+```
 
 The compiled binaries will be in the `build/` directory.
 
