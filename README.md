@@ -2,15 +2,11 @@
 
 A CLI tool for managing Minecraft modpacks, with extremely colorful output and exporting to modrinth's modpack format.
 
----
-
 ## Features
 - **Create, search, add, remove, and list mods**
 - **Dependency resolution**
 - **Export to Modrinth .mrpack** format (with overrides and versioning)
 - **Self-update** from GitHub releases
-
----
 
 ## Installation
 
@@ -73,8 +69,6 @@ bun compile:all
 
 The compiled binaries will be in the `build/` directory.
 
----
-
 ## Usage
 
 You can run the CLI directly with Bun for development:
@@ -88,8 +82,6 @@ Or use the compiled binary:
 ```
 ./build/minepack-win-x64.exe <command> [...args]
 ```
-
----
 
 ## Commands
 
@@ -106,13 +98,9 @@ Or use the compiled binary:
 | `export`        | Export as Modrinth .mrpack (with overrides)      | `minepack export [--required] [--verbose]`     |
 | `selfupdate`    | Update minepack to the latest release            | `minepack selfupdate [--version <tag>]`        |
 
----
-
 ## Development
 - See `src/commands/` for all command implementations
 - See `package.json` for all build scripts
-
----
 
 ## License
 MIT
