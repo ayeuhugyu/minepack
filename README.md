@@ -99,7 +99,7 @@ Or use the compiled binary:
 | `search`        | Search for a mod on Modrinth                     | `minepack search <query> [--gameVersion <ver>] [--modloader <loader>] [--verbose]` |
 | `add`           | Add a mod to your pack (with dependencies)       | `minepack add <mod> [--verbose]`               |
 | `remove`        | Remove a mod, with dependency/orphan checks      | `minepack remove <mod> [--verbose]`            |
-| `list`          | List all mods in your pack                       | `minepack list [full|basic] [--hashes] [--urls] [--env] [--ids] [--size]` |
+| `list`          | List all mods in your pack                       | `minepack list [full\|basic] [--hashes] [--urls] [--env] [--ids] [--size]` |
 | `map`           | Show a dependency map of your pack               | `minepack map [--full] [--json] [--orphans] [--reverse] [--summary]` |
 | `query`         | Check if a mod is in your pack                   | `minepack query <mod>`                         |
 | `pack`          | Show pack metadata and total mod file size       | `minepack pack`                                |
