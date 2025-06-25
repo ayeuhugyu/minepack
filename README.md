@@ -109,7 +109,6 @@ Or use the compiled binary:
 ---
 
 ## Development
-- TypeScript, Bun, and modern CLI best practices
 - See `src/commands/` for all command implementations
 - See `package.json` for all build scripts
 
