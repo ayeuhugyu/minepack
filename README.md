@@ -62,6 +62,3 @@ Or use the compiled binary:
 | `pack`          | Show pack metadata and total mod file size       | `minepack pack`                                |
 | `export`        | Export as Modrinth .mrpack (with overrides)      | `minepack export [--required] [--verbose]`     |
 | `selfupdate`    | Update minepack to the latest release            | `minepack selfupdate [--version <tag>]`        |
-
-## License
-MIT
