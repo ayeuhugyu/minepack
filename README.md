@@ -17,13 +17,6 @@ Go to the [Releases page](https://github.com/ayeuhugyu/minepack/releases) and do
 ### 2. Build from Source (Alternative)
 
 #### a. Install [Bun](https://bun.sh/)
-
-```
-curl -fsSL https://bun.sh/install | bash
-```
-
-Or see the [Bun install docs](https://bun.sh/docs/installation) for your platform.
-
 #### b. Clone and Install Dependencies
 
 ```
@@ -38,36 +31,8 @@ bun install
 bun compile
 ```
 
-This will attempt to detect your platform and build the correct binary in the `build/` directory.
-
-#### d. Manual Compilation (If auto-detect fails)
-
-- **Windows x64:**
-```
-bun compile:win-x64
-```
-- **Mac x64:**
-```
-bun compile:mac-x64
-```
-- **Mac ARM64:**
-```
-bun compile:mac-arm64
-```
-- **Linux x64:**
-```
-bun compile:linux-x64
-```
-- **Linux ARM64:**
-```
-bun compile:linux-arm64
-```
-- **All Platforms All At Once:**
-```
-bun compile:all
-```
-
-The compiled binaries will be in the `build/` directory.
+This should be able to detect your platform and build the correct binary in the `build/` directory.
+If it fails, try the most appropriate script of the build scripts in `package.json`
 
 ## Usage
 
