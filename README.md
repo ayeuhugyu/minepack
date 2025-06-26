@@ -98,9 +98,5 @@ Or use the compiled binary:
 | `export`        | Export as Modrinth .mrpack (with overrides)      | `minepack export [--required] [--verbose]`     |
 | `selfupdate`    | Update minepack to the latest release            | `minepack selfupdate [--version <tag>]`        |
 
-## Development
-- See `src/commands/` for all command implementations
-- See `package.json` for all build scripts
-
 ## License
 MIT
