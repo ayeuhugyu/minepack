@@ -1,9 +1,0 @@
-{
-  "name": "Bun DevContainer",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "settings": {},
-  "postCreateCommand": "npm install -g bun && bun --version",
-  "remoteUser": "root"
-}

@@ -1,1 +1,0 @@
-export const BaseURL = 'https://api.modrinth.com/v2';
