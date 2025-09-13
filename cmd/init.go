@@ -6,51 +6,72 @@ import (
 	"strings"
 
 	"minepack/core"
+	"minepack/util"
 
-	"github.com/manifoldco/promptui"
+	"github.com/charmbracelet/huh"
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 )
 
+var (
+	name              string
+	description       string
+	author            string
+	gameVersion       string
+	selectedModloader string
+)
+
 // initCmd represents the init command
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize a new Minepack project",
 	Long:  `Initialize a new Minepack project in the current directory.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		// name the project
-
 		var bannedCharacters = []rune{'/', '\\', ':', '*', '?', '"', '<', '>', '|'}
-		validateName := func(input string) error {
-			if input == "" {
-				return errors.New("name cannot be empty")
-			}
-			if len(input) > 50 {
-				return errors.New("name is too long (max 50 characters)")
-			}
+
+		validateMeta := func(input string) error {
 			for _, char := range bannedCharacters {
 				if strings.ContainsRune(input, char) {
-					return fmt.Errorf("name cannot contain '%c'", char)
+					return fmt.Errorf("input cannot contain '%c'", char)
 				}
 			}
 			return nil
 		}
 
-		namePrompt := promptui.Prompt{
-			Label:    "Project Name",
-			Validate: validateName,
-		}
+		metaForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Name").
+					Description("the name that will be used for the project").
+					Value(&name).
+					Validate(validateMeta),
+				huh.NewInput().
+					Title("Description").
+					Description("a brief description of the project").
+					Value(&description).
+					Validate(validateMeta),
+				huh.NewInput().
+					Title("Author").
+					Description("the author of the project").
+					Value(&author).
+					Validate(validateMeta),
+			),
+		)
 
-		name, err := namePrompt.Run()
+		err := metaForm.Run()
 
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
+			fmt.Printf(util.FormatError("Prompt failed: %v\n"), err)
 			return
 		}
 
-		// select minecraft version
+		fmt.Printf(util.FormatSuccess("Project Name: %s\n"), name)
+		fmt.Printf(util.FormatSuccess("Description: %s\n"), description)
+		fmt.Printf(util.FormatSuccess("Author: %s\n"), author)
 
+		fmt.Printf("\n")
+		// fetch minecraft versions
 		gameVersionSpinner := progressbar.NewOptions(-1,
 			progressbar.OptionSetDescription("Fetching Minecraft versions..."),
 			progressbar.OptionSpinnerType(14),
@@ -67,50 +88,109 @@ var initCmd = &cobra.Command{
 		gameVersionSpinner.Finish()
 
 		if err != nil {
-			fmt.Printf("❌ Error fetching latest Minecraft version: %v\n", err)
+			fmt.Printf(util.FormatError("Failed to fetch Minecraft versions: %v\n"), err)
 			return
 		}
 
+		// select game version
 		versionValidator := func(input string) error {
 			if input == "" {
 				return nil // allow empty input to use default version
 			}
-			// error if input does not match pattern like "1.20.1" or "1.19"
 			split := strings.Split(input, ".")
 			if len(split) < 2 || len(split) > 3 {
 				return errors.New("version must be in format 'Major.Minor' or 'Major.Minor.Patch'")
 			}
-
-			// check that the inputted version is a real version
 			for _, v := range allGameVersionsFlat {
 				if v == input {
 					return nil
 				}
 			}
-
 			return errors.New("version not found")
 		}
 
-		versionPrompt := promptui.Prompt{
-			Label:    "Game Version (1.20.1)",
-			Validate: versionValidator,
-		}
+		var inputGameVersion string
+		versionForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Game Version").
+					Description("Enter Minecraft version (default: 1.20.1)").
+					Placeholder("1.20.1").
+					Value(&inputGameVersion).
+					Validate(versionValidator),
+			),
+		)
 
-		inputGameVersion, err := versionPrompt.Run()
-
+		err = versionForm.Run()
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			return
 		}
 
-		var gameVersion string
 		if inputGameVersion == "" {
 			gameVersion = "1.20.1"
 		} else {
 			gameVersion = inputGameVersion
 		}
 
-		fmt.Printf("Creating project '%s' for Minecraft %s...\n", name, gameVersion)
+		fmt.Printf(util.FormatSuccess("Game Version: %s\n"), gameVersion)
+
+		fmt.Printf("\n")
+		// fetch modloader versions
+
+		modloaderVersionSpinner := progressbar.NewOptions(-1,
+			progressbar.OptionSetDescription("Fetching modloader versions..."),
+			progressbar.OptionSpinnerType(14),
+			progressbar.OptionClearOnFinish(),
+		)
+		modloaderVersionSpinner.Add(1)
+
+		allModloaderVersions := core.GetAllLatestVersions(gameVersion)
+
+		modloaderVersionSpinner.Finish()
+
+		if err != nil {
+			fmt.Printf(util.FormatError("Failed to fetch modloader versions: %v\n"), err)
+			return
+		}
+		// select modloader
+
+		// use modloaderVersions to determine the items in the select
+		var availableModloaderNames []string
+		for name := range allModloaderVersions {
+			if name == "minecraft" {
+				continue
+			}
+			if strings.HasPrefix(allModloaderVersions[name], "error:") {
+				continue
+			}
+			availableModloaderNames = append(availableModloaderNames, name)
+		}
+
+		modloaderForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Modloader").
+					Description("Choose a modloader (default: Fabric)").
+					Options(huh.NewOptions(availableModloaderNames...)...).
+					Value(&selectedModloader),
+			),
+		)
+
+		err = modloaderForm.Run()
+		if err != nil {
+			fmt.Printf("Prompt failed %v\n", err)
+			return
+		}
+
+		if selectedModloader == "" {
+			selectedModloader = "Fabric"
+		}
+
+		fmt.Printf(util.FormatSuccess("Modloader: %s\n"), selectedModloader)
+		fmt.Printf(util.FormatSuccess("Modloader Version: %s\n"), allModloaderVersions[selectedModloader])
+
+		fmt.Printf("\n")
 	},
 }
 

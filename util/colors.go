@@ -22,7 +22,7 @@ func ResetColor(text ...string) string {
 }
 
 func formatWithSymbol(text, symbol string, color Color) string {
-	return ColorAny(symbol+text, color)
+	return ColorAny(symbol+text, color) + "\033[0m"
 }
 func FormatError(text string) string {
 	return formatWithSymbol(text, "✘  ", NewColor(220, 120, 120))
@@ -32,4 +32,34 @@ func FormatSuccess(text string) string {
 }
 func FormatInfo(text string) string {
 	return formatWithSymbol(text, "➜  ", NewColor(80, 120, 220))
+}
+
+// MoveCursorUp moves the cursor up by the specified number of lines
+func MoveCursorUp(lines int) string {
+	return "\033[" + strconv.Itoa(lines) + "A"
+}
+
+// ClearLine clears the current line
+func ClearLine() string {
+	return "\033[2K"
+}
+
+// MoveCursorToStartOfLine moves cursor to the beginning of the current line
+func MoveCursorToStartOfLine() string {
+	return "\033[0G"
+}
+
+// OverwritePreviousLine moves cursor up one line, clears it, and positions at start
+func OverwritePreviousLine() string {
+	return MoveCursorUp(1) + ClearLine() + MoveCursorToStartOfLine()
+}
+
+// ClearPromptLines clears multiple lines above cursor to clean up prompt artifacts
+func ClearPromptLines(lines int) string {
+	result := ""
+	for i := 0; i < lines; i++ {
+		result += MoveCursorUp(1) + ClearLine()
+	}
+	result += MoveCursorToStartOfLine()
+	return result
 }

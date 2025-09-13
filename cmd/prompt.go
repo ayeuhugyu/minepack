@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/manifoldco/promptui"
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 )
 
@@ -28,34 +28,51 @@ var promptCmd = &cobra.Command{
 			return nil
 		}
 
-		prompt := promptui.Prompt{
-			Label:    "Number",
-			Validate: validate,
-		}
+		var number string
+		numberForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Number").
+					Description("Enter a number").
+					Value(&number).
+					Validate(validate),
+			),
+		)
 
-		result, err := prompt.Run()
-
+		err := numberForm.Run()
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			return
 		}
 
-		fmt.Printf("You choose %q\n", result)
+		fmt.Printf("You choose %q\n", number)
 
-		prompt2 := promptui.Select{
-			Label: "Select Day",
-			Items: []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
-				"Saturday", "Sunday"},
-		}
+		var day string
+		dayForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Select Day").
+					Description("Choose a day of the week").
+					Options(
+						huh.NewOption("Monday", "Monday"),
+						huh.NewOption("Tuesday", "Tuesday"),
+						huh.NewOption("Wednesday", "Wednesday"),
+						huh.NewOption("Thursday", "Thursday"),
+						huh.NewOption("Friday", "Friday"),
+						huh.NewOption("Saturday", "Saturday"),
+						huh.NewOption("Sunday", "Sunday"),
+					).
+					Value(&day),
+			),
+		)
 
-		_, result2, err2 := prompt2.Run()
-
-		if err2 != nil {
-			fmt.Printf("Prompt failed %v\n", err2)
+		err = dayForm.Run()
+		if err != nil {
+			fmt.Printf("Prompt failed %v\n", err)
 			return
 		}
 
-		fmt.Printf("You choose %q\n", result2)
+		fmt.Printf("You choose %q\n", day)
 	},
 }
 
