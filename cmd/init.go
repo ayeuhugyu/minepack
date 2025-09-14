@@ -50,9 +50,10 @@ var initCmd = &cobra.Command{
 					Description("the name that will be used for the project").
 					Value(&name).
 					Validate(validateMeta),
-				huh.NewInput().
+				huh.NewText().
 					Title("description").
 					Description("a brief description of the project").
+					Lines(3).
 					Value(&description).
 					Validate(validateMeta),
 				huh.NewInput().
@@ -120,6 +121,7 @@ var initCmd = &cobra.Command{
 					Title("game version").
 					Description("enter minecraft version (default: 1.20.1)").
 					Placeholder("1.20.1").
+					Suggestions(allGameVersionsFlat).
 					Value(&inputGameVersion).
 					Validate(versionValidator),
 			),
@@ -127,7 +129,7 @@ var initCmd = &cobra.Command{
 
 		err = versionForm.Run()
 		if err != nil {
-			fmt.Printf("prompt failed %v\n", err)
+			fmt.Printf(util.FormatError("prompt failed: %v\n"), err)
 			return
 		}
 
@@ -183,7 +185,7 @@ var initCmd = &cobra.Command{
 
 		err = modloaderForm.Run()
 		if err != nil {
-			fmt.Printf("prompt failed %v\n", err)
+			fmt.Printf(util.FormatError("prompt failed: %v\n"), err)
 			return
 		}
 
@@ -208,7 +210,7 @@ var initCmd = &cobra.Command{
 		)
 		err = defaultSourceForm.Run()
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
+			fmt.Printf(util.FormatError("prompt failed: %v\n"), err)
 			return
 		}
 		if selectedDefaultSource == "" {
