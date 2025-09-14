@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"minepack/core"
@@ -244,7 +245,7 @@ var initCmd = &cobra.Command{
 		}
 
 		var confirm bool
-		fmt.Print("this will write to " + root + "/project.mp.yaml. ")
+		fmt.Print("this will write to " + root + string(filepath.Separator) + "project.mp.yaml. ")
 		huh.NewConfirm().
 			Title("do you want to continue?").
 			Affirmative("yup").
