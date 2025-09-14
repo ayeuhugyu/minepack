@@ -26,7 +26,6 @@ to quickly create a Cobra application.`,
 
 		fmt.Println(util.FormatError("This is an error message"))
 		fmt.Println(util.FormatSuccess("This is a success message"))
-		fmt.Println(util.FormatInfo("This is an info message"))
 	},
 }
 

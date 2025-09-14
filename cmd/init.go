@@ -3,9 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"minepack/core"
+	"minepack/core/project"
 	"minepack/util"
 
 	"github.com/charmbracelet/huh"
@@ -14,19 +16,20 @@ import (
 )
 
 var (
-	name              string
-	description       string
-	author            string
-	gameVersion       string
-	selectedModloader string
+	name                  string
+	description           string
+	author                string
+	gameVersion           string
+	selectedModloader     string
+	selectedDefaultSource string
 )
 
 // initCmd represents the init command
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize a new Minepack project",
-	Long:  `Initialize a new Minepack project in the current directory.`,
+	Short: "initialize a new minepack project",
+	Long:  `initialize a new minepack project`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var bannedCharacters = []rune{'/', '\\', ':', '*', '?', '"', '<', '>', '|'}
 
@@ -42,17 +45,17 @@ var initCmd = &cobra.Command{
 		metaForm := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
-					Title("Name").
+					Title("name").
 					Description("the name that will be used for the project").
 					Value(&name).
 					Validate(validateMeta),
 				huh.NewInput().
-					Title("Description").
+					Title("description").
 					Description("a brief description of the project").
 					Value(&description).
 					Validate(validateMeta),
 				huh.NewInput().
-					Title("Author").
+					Title("author").
 					Description("the author of the project").
 					Value(&author).
 					Validate(validateMeta),
@@ -62,18 +65,18 @@ var initCmd = &cobra.Command{
 		err := metaForm.Run()
 
 		if err != nil {
-			fmt.Printf(util.FormatError("Prompt failed: %v\n"), err)
+			fmt.Printf(util.FormatError("prompt failed: %v\n"), err)
 			return
 		}
 
-		fmt.Printf(util.FormatSuccess("Project Name: %s\n"), name)
-		fmt.Printf(util.FormatSuccess("Description: %s\n"), description)
-		fmt.Printf(util.FormatSuccess("Author: %s\n"), author)
+		fmt.Printf(util.FormatSuccess("project name: %s\n"), name)
+		fmt.Printf(util.FormatSuccess("description: %s\n"), description)
+		fmt.Printf(util.FormatSuccess("author: %s\n"), author)
 
 		fmt.Printf("\n")
 		// fetch minecraft versions
 		gameVersionSpinner := progressbar.NewOptions(-1,
-			progressbar.OptionSetDescription("Fetching Minecraft versions..."),
+			progressbar.OptionSetDescription("fetching minecraft versions..."),
 			progressbar.OptionSpinnerType(14),
 			progressbar.OptionClearOnFinish(),
 		)
@@ -88,7 +91,7 @@ var initCmd = &cobra.Command{
 		gameVersionSpinner.Finish()
 
 		if err != nil {
-			fmt.Printf(util.FormatError("Failed to fetch Minecraft versions: %v\n"), err)
+			fmt.Printf(util.FormatError("failed to fetch minecraft versions: %v\n"), err)
 			return
 		}
 
@@ -113,8 +116,8 @@ var initCmd = &cobra.Command{
 		versionForm := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
-					Title("Game Version").
-					Description("Enter Minecraft version (default: 1.20.1)").
+					Title("game version").
+					Description("enter minecraft version (default: 1.20.1)").
 					Placeholder("1.20.1").
 					Value(&inputGameVersion).
 					Validate(versionValidator),
@@ -123,7 +126,7 @@ var initCmd = &cobra.Command{
 
 		err = versionForm.Run()
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
+			fmt.Printf("prompt failed %v\n", err)
 			return
 		}
 
@@ -133,13 +136,13 @@ var initCmd = &cobra.Command{
 			gameVersion = inputGameVersion
 		}
 
-		fmt.Printf(util.FormatSuccess("Game Version: %s\n"), gameVersion)
+		fmt.Printf(util.FormatSuccess("game version: %s\n"), gameVersion)
 
 		fmt.Printf("\n")
 		// fetch modloader versions
 
 		modloaderVersionSpinner := progressbar.NewOptions(-1,
-			progressbar.OptionSetDescription("Fetching modloader versions..."),
+			progressbar.OptionSetDescription("fetching modloader versions..."),
 			progressbar.OptionSpinnerType(14),
 			progressbar.OptionClearOnFinish(),
 		)
@@ -150,7 +153,7 @@ var initCmd = &cobra.Command{
 		modloaderVersionSpinner.Finish()
 
 		if err != nil {
-			fmt.Printf(util.FormatError("Failed to fetch modloader versions: %v\n"), err)
+			fmt.Printf(util.FormatError("failed to fetch modloader versions: %v\n"), err)
 			return
 		}
 		// select modloader
@@ -170,8 +173,8 @@ var initCmd = &cobra.Command{
 		modloaderForm := huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
-					Title("Modloader").
-					Description("Choose a modloader (default: Fabric)").
+					Title("modloader").
+					Description("choose a modloader (default: fabric)").
 					Options(huh.NewOptions(availableModloaderNames...)...).
 					Value(&selectedModloader),
 			),
@@ -179,18 +182,88 @@ var initCmd = &cobra.Command{
 
 		err = modloaderForm.Run()
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
+			fmt.Printf("prompt failed %v\n", err)
 			return
 		}
 
 		if selectedModloader == "" {
-			selectedModloader = "Fabric"
+			selectedModloader = "fabric"
 		}
 
-		fmt.Printf(util.FormatSuccess("Modloader: %s\n"), selectedModloader)
-		fmt.Printf(util.FormatSuccess("Modloader Version: %s\n"), allModloaderVersions[selectedModloader])
+		fmt.Printf(util.FormatSuccess("modloader: %s\n"), selectedModloader)
+		fmt.Printf(util.FormatSuccess("modloader version: %s\n"), allModloaderVersions[selectedModloader])
+
+		// select default source
+		var availableDefaultSources = []string{"modrinth", "curseforge"}
+
+		defaultSourceForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("default source").
+					Description("choose a default source for mods (default: modrinth)").
+					Options(huh.NewOptions(availableDefaultSources...)...).
+					Value(&selectedDefaultSource),
+			),
+		)
+		err = defaultSourceForm.Run()
+		if err != nil {
+			fmt.Printf("Prompt failed %v\n", err)
+			return
+		}
+		if selectedDefaultSource == "" {
+			selectedDefaultSource = "modrinth"
+		}
+
+		fmt.Printf(util.FormatSuccess("default source: %s\n"), selectedDefaultSource)
+
+		// root will be the current working directory\normalized version of project name
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Printf(util.FormatError("failed to get current working directory: %v\n"), err)
+			return
+		}
+		root := cwd + "/" + strings.ReplaceAll(name, " ", "-")
+
+		fmt.Printf("project root: %s\n", root)
 
 		fmt.Printf("\n")
+
+		projectData := project.Project{
+			Name:          name,
+			Description:   description,
+			Author:        author,
+			DefaultSource: selectedDefaultSource,
+			Root:          root,
+			Versions: project.ProjectVersions{
+				Game: gameVersion,
+				Loader: project.ModloaderVersion{
+					Name:    selectedModloader,
+					Version: allModloaderVersions[selectedModloader],
+				},
+			},
+		}
+
+		var confirm bool
+		fmt.Print("this will write to " + root + "/project.mp.yaml. ")
+		huh.NewConfirm().
+			Title("do you want to continue?").
+			Affirmative("yup").
+			Negative("nah").
+			Value(&confirm).
+			Run()
+
+		if !confirm {
+			fmt.Printf("aborting project initialization\n")
+			return
+		}
+
+		err = project.WriteProject(&projectData)
+		if err != nil {
+			fmt.Printf(util.FormatError("failed to write project files: %v\n"), err)
+			return
+		}
+
+		fmt.Print(util.FormatSuccess("project initialized!\n"))
 	},
 }
 
