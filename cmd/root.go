@@ -6,14 +6,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const Version = "v6"
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "minepack",
-	Short: "A powerful CLI tool for minepack operations",
-	Long: `Minepack is a CLI tool that provides various commands for 
-managing and processing minecraft-related operations.
+	Use:     "minepack",
+	Version: Version, // Set the version directly
+	Short:   "a command line tool for managing minecraft modpacks",
+	Long: `minepack is a command line tool that provides various commands for 
+managing and processing minecraft modpacks.`,
+}
 
-Use the available subcommands to perform different actions.`,
+// GetRootCmd returns the root command for use with fang
+func GetRootCmd() *cobra.Command {
+	return rootCmd
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -34,5 +40,5 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
