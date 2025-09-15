@@ -18,3 +18,14 @@ type Project struct {
 	Versions      ProjectVersions
 	DefaultSource string // "modrinth" or "curseforge"
 }
+
+// Mods
+
+type Mod struct {
+	// todo: finish
+}
+
+type Manifest struct {
+	ModsDirectory string
+	Mods          []Mod
+}

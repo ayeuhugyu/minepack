@@ -34,5 +34,17 @@ func WriteProject(proj *Project) error {
 
 	encoder := yaml.NewEncoder(configFile)
 	encoder.SetIndent(2)
-	return encoder.Encode(proj)
+	encoder.Encode(proj)
+
+	// if there is not a mods folder, create it
+
+	modsDir := filepath.Join(projDir, "mods")
+	if _, err := os.Stat(modsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(modsDir, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
