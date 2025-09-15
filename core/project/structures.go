@@ -1,5 +1,7 @@
 package project
 
+// Project
+
 type ModloaderVersion struct {
 	Name    string
 	Version string
@@ -21,11 +23,47 @@ type Project struct {
 
 // Mods
 
-type Mod struct {
+type ContentType int
+const (
+	Mod ContentType = iota
+	Resourcepack
+	Shaderpack
+	Datapack
+	World
+)
+
+type HashFormat int 
+const (
+	SHA1 HashFormat = iota
+	SHA256
+	SHA512
+	MD5
+)
+
+type ModSide int
+const (
+	None ModSide = iota
+	Client
+	Server
+	Both
+)
+
+type hashes struct {
+	sha1   string
+	sha256 string
+	sha512 string
+	md5    string
+}
+
+type ContentData struct {
 	// todo: finish
+	contentType ContentType
+	name        string
+	side        ModSide
+	hashes      hashes
 }
 
 type Manifest struct {
-	ModsDirectory string
-	Mods          []Mod
+	ContentDirectory string
+	Content          []ContentData
 }
