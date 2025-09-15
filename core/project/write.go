@@ -36,11 +36,11 @@ func WriteProject(proj *Project) error {
 	encoder.SetIndent(2)
 	encoder.Encode(proj)
 
-	// if there is not a mods folder, create it
+	// if there is not a content folder, create it
 
-	modsDir := filepath.Join(projDir, "mods")
-	if _, err := os.Stat(modsDir); os.IsNotExist(err) {
-		err = os.MkdirAll(modsDir, os.ModePerm)
+	contentDir := filepath.Join(projDir, "content")
+	if _, err := os.Stat(contentDir); os.IsNotExist(err) {
+		err = os.MkdirAll(contentDir, os.ModePerm)
 		if err != nil {
 			return err
 		}
