@@ -48,6 +48,13 @@ const (
 	Both
 )
 
+type Source int
+const (
+	Modrinth Source = iota
+	Curseforge
+	Custom
+)
+
 type hashes struct {
 	sha1   string
 	sha256 string
@@ -55,12 +62,41 @@ type hashes struct {
 	md5    string
 }
 
+type fileData struct {
+	filename string
+	filesize int64
+	filepath string
+	hashes   hashes
+}
+
+type DependencyType int
+const (
+	Required DependencyType = iota
+	Optional
+	Embedded
+	Incompatible
+)
+
+type Dependency struct {
+	name           string
+	slug           string
+	id             string
+	dependencyType DependencyType
+}
+
 type ContentData struct {
 	// todo: finish
-	contentType ContentType
-	name        string
-	side        ModSide
-	hashes      hashes
+	contentType  ContentType
+	name         string
+	id           string
+	slug         string
+	side         ModSide
+	pageUrl      string
+	downloadUrl  string
+	versionid    string
+	source       Source
+	file         fileData
+	dependencies []Dependency
 }
 
 type Manifest struct {

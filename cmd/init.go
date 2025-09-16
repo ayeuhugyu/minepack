@@ -216,6 +216,22 @@ var initCmd = &cobra.Command{
 		if selectedDefaultSource == "" {
 			selectedDefaultSource = "modrinth"
 		}
+		// if the selected source is curseforge, verify that the user actually wants to use this
+		if selectedDefaultSource == "curseforge" {
+			var confirm bool
+			fmt.Println("curseforge has a lot of limitations compared to modrinth, such as no support for datapacks or shaderpacks.\nsome features of minepack will not work when curseforge is the default source.")
+			huh.NewConfirm().
+				Title("are you sure you want to use curseforge as the default source?").
+				Affirmative("yup").
+				Negative("nah").
+				Value(&confirm).
+				Run()
+
+			if !confirm {
+				selectedDefaultSource = "modrinth"
+				fmt.Printf("default source set to modrinth instead\n")
+			}
+		}
 
 		fmt.Printf(util.FormatSuccess("default source: %s\n"), selectedDefaultSource)
 
