@@ -55,18 +55,18 @@ const (
 	Custom
 )
 
-type hashes struct {
-	sha1   string
-	sha256 string
-	sha512 string
-	md5    string
+type Hashes struct {
+	Sha1   string
+	Sha256 string
+	Sha512 string
+	Md5    string
 }
 
-type fileData struct {
-	filename string
-	filesize int64
-	filepath string
-	hashes   hashes
+type FileData struct {
+	Filename string
+	Filesize int64
+	Filepath string // relative to project root
+	Hashes   Hashes
 }
 
 type DependencyType int
@@ -78,25 +78,25 @@ const (
 )
 
 type Dependency struct {
-	name           string
-	slug           string
-	id             string
-	dependencyType DependencyType
+	Name           string
+	Slug           string
+	Id             string
+	DependencyType DependencyType
 }
 
 type ContentData struct {
 	// todo: finish
-	contentType  ContentType
-	name         string
-	id           string
-	slug         string
-	side         ModSide
-	pageUrl      string
-	downloadUrl  string
-	versionid    string
-	source       Source
-	file         fileData
-	dependencies []Dependency
+	ContentType  ContentType
+	Name         string
+	Id           string
+	Slug         string
+	Side         ModSide
+	PageUrl      string
+	DownloadUrl  string
+	VersionId    string
+	Source       Source
+	File         FileData
+	Dependencies []Dependency
 }
 
 type Manifest struct {
