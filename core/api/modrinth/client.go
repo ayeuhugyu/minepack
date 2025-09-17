@@ -5,16 +5,32 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
 )
 
 const baseURL = "https://api.modrinth.com/v2"
 
-func getJSON(url string, target interface{}) error {
-	resp, err := http.Get(url)
+var httpClient = &http.Client{}
+
+func getJSON(url string, target any) error {
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Add("User-Agent", "Minepack/1.0 (+https://github.com/ayeuhugyu/minepack)")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", "application/json")
 	if err != nil {
 		return err
 	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	// print the raw http request for debugging --- IGNORE ---
+	dump, err := httputil.DumpResponse(resp, true)
+	if err == nil {
+		fmt.Printf("%q\n", dump)
+	}
+	// --- IGNORE ---
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("modrinth api error: %s", resp.Status)

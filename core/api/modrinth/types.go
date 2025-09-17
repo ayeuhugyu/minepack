@@ -29,12 +29,6 @@ type ModrinthFile struct {
 	Hashes   map[string]string // e.g. sha1, sha512, etc.
 }
 
-type ModrinthSearchResult struct {
-	ID    string
-	Slug  string
-	Title string
-	Author string
-	ProjectType string
-	IconURL string
-	Description string
+type ModrinthSearchResponse struct {
+	Hits []*ModrinthProject `json:"hits"`
 }

@@ -1,14 +1,15 @@
 /*
 Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"minepack/core/api/modrinth"
+	"minepack/core/project"
+
+	"github.com/spf13/cobra"
 )
 
 // modrinthCmd represents the modrinth command
@@ -23,7 +24,14 @@ var modrinthCmd = &cobra.Command{
 		const projectID = "journeymap"
 
 		// Search for mods
-		results, err := modrinth.SearchMods("map", []string{"fabric"}, []string{"1.20.1"})
+		results, err := modrinth.SearchProjects("map", project.Project{
+			Versions: project.ProjectVersions{
+				Game:  "1.20.1",
+				Loader: project.ModloaderVersion{
+					Name: "fabric",
+				},
+			},
+		}, true)
 		if err != nil {
 			fmt.Println("Search error:", err)
 		} else {
@@ -32,31 +40,6 @@ var modrinthCmd = &cobra.Command{
 				if i >= 3 { break }
 				fmt.Printf("- %s (%s)\n", r.Title, r.ID)
 			}
-		}
-
-		// Get mod info
-		mod, err := modrinth.GetModInfo(projectID)
-		if err != nil {
-			fmt.Println("GetModInfo error:", err)
-		} else {
-			fmt.Printf("Mod info: %s by %s\n", mod.Title, mod.Author)
-		}
-
-		// Convert to ContentData
-		content := modrinth.ConvertModrinthToContentData(mod)
-		fmt.Printf("ContentData: %s (%s)\n", content.Name, content.Id)
-
-		// Download the first file (to ./test_download.jar)
-		if content.File.Filename != "" && content.DownloadUrl != "" {
-			fmt.Println("Downloading file to ./test_download.jar ...")
-			err = modrinth.DownloadModrinthContent(content, "./test_download.jar")
-			if err != nil {
-				fmt.Println("Download error:", err)
-			} else {
-				fmt.Println("Download successful!")
-			}
-		} else {
-			fmt.Println("No downloadable file found.")
 		}
 	},
 }
