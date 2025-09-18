@@ -74,8 +74,8 @@ var modrinthCmd = &cobra.Command{
 		contentData := modrinth.ConvertProjectToContentData(projectInfo, versions[0])
 		fmt.Printf("converted ContentData: %+v\n", contentData)
 
-		// download the first version's file to testproject/
-		err = modrinth.DownloadContent(contentData, "testproject/"+contentData.File.Filename)
+		// download the first version's file to testProject/
+		err = modrinth.DownloadContent(contentData, "testProject/"+contentData.File.Filename)
 		if err != nil {
 			fmt.Println("download error:", err)
 		} else {
