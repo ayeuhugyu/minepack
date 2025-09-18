@@ -3,6 +3,7 @@ module minepack
 go 1.24.3
 
 require (
+	codeberg.org/jmansfield/go-modrinth v0.6.0
 	github.com/charmbracelet/fang v0.4.0
 	github.com/charmbracelet/huh v0.7.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213

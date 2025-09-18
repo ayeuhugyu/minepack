@@ -16,30 +16,70 @@ import (
 var modrinthCmd = &cobra.Command{
 	Use:   "modrinth",
 	Short: "test modrinth api functions",
-	Long: `tests modrinth api functions like searching, fetching mod info, and downloading files.`,
+	Long:  `tests modrinth api functions like searching, fetching mod info, and downloading files.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Modrinth API demo:")
 
-		// Use a constant mod project ID (e.g., "journeymap")
-		const projectID = "journeymap"
-
-		// Search for mods
-		results, err := modrinth.SearchProjects("map", project.Project{
+		// search for mods using the package-level client
+		var templateProject = project.Project{
 			Versions: project.ProjectVersions{
-				Game:  "1.20.1",
+				Game: "1.20.1",
 				Loader: project.ModloaderVersion{
 					Name: "fabric",
 				},
 			},
-		}, true)
+		}
+		results, err := modrinth.SearchProjects("journeymap", templateProject, true)
 		if err != nil {
-			fmt.Println("Search error:", err)
+			fmt.Println("search error:", err)
 		} else {
-			fmt.Printf("Search results for 'map': %d found\n", len(results))
-			for i, r := range results {
-				if i >= 3 { break }
-				fmt.Printf("- %s (%s)\n", r.Title, r.ID)
+			fmt.Printf("search results for 'map': %d found\n", len(results))
+			for _, r := range results {
+
+				// handle pointer dereferences safely
+				title := "Unknown"
+				if r.Title != nil {
+					title = *r.Title
+				}
+
+				id := "Unknown"
+				if r.ProjectID != nil {
+					id = *r.ProjectID
+				}
+
+				fmt.Printf("- %s (%s)\n", title, id)
 			}
+		}
+		firstId := results[0].ProjectID
+		// fetch detailed project info
+		projectInfo, err := modrinth.GetProject(*firstId)
+		if err != nil {
+			fmt.Println("GetProject error:", err)
+		} else {
+			fmt.Printf("project info for ID %s: Name=%s, Description=%s\n", *firstId, *projectInfo.Title, *projectInfo.Description)
+		}
+
+		// fetch versions for the first result
+		versions, err := modrinth.GetProjectVersions(*firstId, templateProject)
+		if err != nil {
+			fmt.Println("GetProjectVersions error:", err)
+		} else {
+			fmt.Printf("versions for project ID %s:\n", *firstId)
+			for _, v := range versions {
+				fmt.Printf("- %s (ID: %s)\n", *v.Name, *v.ID)
+			}
+		}
+
+		// convert the first search result to ContentData
+		contentData := modrinth.ConvertProjectToContentData(projectInfo, versions[0])
+		fmt.Printf("converted ContentData: %+v\n", contentData)
+
+		// download the first version's file to testproject/
+		err = modrinth.DownloadContent(contentData, "testproject/"+contentData.File.Filename)
+		if err != nil {
+			fmt.Println("download error:", err)
+		} else {
+			fmt.Println("download successful!")
 		}
 	},
 }

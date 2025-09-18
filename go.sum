@@ -1,3 +1,5 @@
+codeberg.org/jmansfield/go-modrinth v0.6.0 h1:NbSWw5ngC1ELF82wo46tTAFJvcDAwxieEA1Es1esFjA=
+codeberg.org/jmansfield/go-modrinth v0.6.0/go.mod h1:feVF2NqtWdzIpCMgUT/Q/Wb8CpEVpi64m4TJXB+ejq0=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
 github.com/atotto/clipboard v0.1.4 h1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z4=
