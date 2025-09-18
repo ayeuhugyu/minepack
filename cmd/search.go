@@ -42,7 +42,7 @@ to quickly create a Cobra application.`,
 			Versions: project.ProjectVersions{
 				Game: "1.20.1",
 				Loader: project.ModloaderVersion{
-					Name:   "fabric",
+					Name: "fabric",
 				},
 			},
 		}

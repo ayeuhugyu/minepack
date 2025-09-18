@@ -28,9 +28,23 @@ func joinLinesByNewline(lines []string) string {
 	return result
 }
 
+func stylizeDependencyType(depType string) string {
+	switch depType {
+	case "required":
+		return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#4487aeff")).Render(depType)
+	case "optional":
+		return grayStyle.Render(depType)
+	case "incompatible":
+		return FormatError(depType)
+	case "embedded":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#c1b04fff")).Render(depType)
+	}
+	return depType
+}
+
 func FormatContentData(data project.ContentData) string {
 	var lines []string
-	lines = append(lines, data.Name + grayStyle.Render(" (" + data.Slug + ")")) // make the slug gray
+	lines = append(lines, boldStyle.Render(data.Name)+grayStyle.Render(" ("+data.Slug+")")) // make the slug gray
 	switch data.Source {
 	case project.Modrinth:
 		lines = append(lines, modrinthStyle.Render(data.PageUrl))
@@ -40,9 +54,9 @@ func FormatContentData(data project.ContentData) string {
 		lines = append(lines, grayStyle.Render("(no page)"))
 	}
 	if len(data.Dependencies) > 0 {
-		lines = append(lines, "dependencies:")
+		lines = append(lines, "\ndependencies:")
 		for _, dep := range data.Dependencies {
-			lines = append(lines, " - " + project.DependencyTypeToString(dep.DependencyType) + " " + dep.Name + grayStyle.Render(" (" + dep.Slug + ")"))
+			lines = append(lines, " - "+stylizeDependencyType(project.DependencyTypeToString(dep.DependencyType))+": "+dep.Name+grayStyle.Render(" ("+dep.Slug+")"))
 		}
 	}
 	return contentDataStyle.Render(joinLinesByNewline(lines))
