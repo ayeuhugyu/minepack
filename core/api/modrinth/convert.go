@@ -90,6 +90,46 @@ func ConvertProjectToContentData(proj *modrinth.Project, version *modrinth.Versi
 				contentData.File.Hashes = hashes
 			}
 		}
+
+		// add dependencies if available
+		if len(version.Dependencies) > 0 {
+			for _, dep := range version.Dependencies {
+				// fetch the dependency project to get its slug and name
+				depProj, err := GetProject(*dep.ProjectID)
+				if err != nil {
+					continue
+				}
+				depName := ""
+				if depProj.Title != nil {
+					depName = *depProj.Title
+				}
+				depSlug := ""
+				if depProj.Slug != nil {
+					depSlug = *depProj.Slug
+				}
+
+				depType := project.Required
+				if dep.DependencyType != nil {
+					switch *dep.DependencyType {
+					case "required":
+						depType = project.Required
+					case "optional":
+						depType = project.Optional
+					case "incompatible":
+						depType = project.Incompatible
+					case "embedded":
+						depType = project.Embedded
+					}
+				}
+
+				contentData.Dependencies = append(contentData.Dependencies, project.Dependency{
+					Name:           depName,
+					Slug:           depSlug,
+					Id:             *dep.ProjectID,
+					DependencyType: depType,
+				})
+			}
+		}
 	}
 
 	return contentData

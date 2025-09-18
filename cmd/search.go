@@ -8,6 +8,7 @@ import (
 
 	"minepack/core/api"
 	"minepack/core/project"
+	"minepack/util"
 
 	"github.com/spf13/cobra"
 )
@@ -54,7 +55,8 @@ to quickly create a Cobra application.`,
 			fmt.Printf("No results found.")
 			return
 		}
-		fmt.Printf("Found: %s (%d) - %s\n", result.Name, result.Source, result.PageUrl)
+		formatted := util.FormatContentData(*result)
+		fmt.Printf("%s\n", formatted)
 	},
 }
 

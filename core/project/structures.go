@@ -77,6 +77,21 @@ const (
 	Incompatible
 )
 
+func DependencyTypeToString(dep DependencyType) string {
+	switch dep {
+	case Required:
+		return "required"
+	case Optional:
+		return "optional"
+	case Incompatible:
+		return "incompatible"
+	case Embedded:
+		return "embedded"
+	default:
+		return "unknown"
+	}
+}
+
 type Dependency struct {
 	Name           string
 	Slug           string
