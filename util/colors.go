@@ -30,3 +30,6 @@ func FormatError(text string) string {
 func FormatSuccess(text string) string {
 	return formatWithSymbol(text, "✔  ", NewColor(100, 200, 100))
 }
+func FormatWarning(text string) string {
+	return formatWithSymbol(text, "⚠  ", NewColor(240, 200, 100))
+}

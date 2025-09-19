@@ -10,6 +10,7 @@ import (
 	"minepack/core"
 	"minepack/core/project"
 	"minepack/util"
+	"minepack/util/version"
 
 	"github.com/charmbracelet/huh"
 	"github.com/schollz/progressbar/v3"
@@ -259,6 +260,7 @@ var initCmd = &cobra.Command{
 					Name:    selectedModloader,
 					Version: allModloaderVersions[selectedModloader],
 				},
+				Minepack: version.Version,
 			},
 		}
 

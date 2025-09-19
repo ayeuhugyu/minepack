@@ -5,63 +5,101 @@ package cmd
 
 import (
 	"fmt"
-
 	"minepack/core/api"
 	"minepack/core/project"
 	"minepack/util"
+	"os"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 )
+
+var validLoaders = []string{"fabric", "forge", "quilt", "neoforge", "liteloader"}
 
 // searchCmd represents the search command
 var searchCmd = &cobra.Command{
 	Use:   "search",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "search for a mod",
+	Long:  `search for a minecraft mod. by default, will use project data from your current directory, otherwise will use default values.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Printf(util.FormatError("error getting current working directory: %s"), err)
+			return
+		}
+		packData, err := project.ParseProject(cwd)
+		if err != nil {
+			packData = &project.Project{
+				DefaultSource: "modrinth",
+			}
+		}
+
+		// Get flags
+		modloader, _ := cmd.Flags().GetString("modloader")
+		version, _ := cmd.Flags().GetString("version")
+
+		// override packData if flags are provided
+		if modloader != "" {
+			// check if modloader is valid
+			isValid := false
+			for _, loader := range validLoaders {
+				if modloader == loader {
+					isValid = true
+					break
+				}
+			}
+			if !isValid {
+				fmt.Printf(util.FormatError("invalid modloader: %s. valid options are: %v\n"), modloader, validLoaders)
+				return
+			}
+			packData.Versions.Loader.Name = modloader
+		}
+		if version != "" {
+			packData.Versions.Game = version
+		}
+
+		query := ""
 		if len(args) < 1 {
-			fmt.Println("Please provide a search query.")
+			fmt.Println("please provide a search query.")
 			return
 		}
 		// query is all args joined with space
-		query := ""
 		for i, arg := range args {
 			if i > 0 {
 				query += " "
 			}
 			query += arg
 		}
-		fmt.Printf("Searching for: %s\n", query)
-		var templateProject = project.Project{
-			DefaultSource: "modrinth",
-			Versions: project.ProjectVersions{
-				Game: "1.20.1",
-				Loader: project.ModloaderVersion{
-					Name: "fabric",
-				},
-			},
-		}
-		result, err := api.SearchAll(query, templateProject)
+
+		searchSpinner := progressbar.NewOptions(-1,
+			progressbar.OptionSetDescription("fetching minecraft versions..."),
+			progressbar.OptionSpinnerType(14),
+			progressbar.OptionClearOnFinish(),
+		)
+		searchSpinner.Add(1)
+
+		result, err := api.SearchAll(query, *packData)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		searchSpinner.Finish()
 		if result == nil {
-			fmt.Printf("No results found.")
+			fmt.Println(util.FormatError("no results found."))
 			return
 		}
 		formatted := util.FormatContentData(*result)
+
 		fmt.Printf("%s\n", formatted)
 	},
 }
 
 func init() {
-	testCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(searchCmd)
+
+	// Add flags for modloader and version
+	searchCmd.Flags().StringP("modloader", "m", "", "specify the modloader (e.g. forge, fabric)")
+	searchCmd.Flags().StringP("version", "v", "", "specify the Minecraft version (e.g. 1.20.1)")
 
 	// Here you will define your flags and configuration settings.
 
