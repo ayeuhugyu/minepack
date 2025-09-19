@@ -47,6 +47,31 @@ func WriteProject(proj *Project) error {
 		}
 	}
 
+	// if there is not any of the following folders, create them:
+	// overrides
+	// overrides/mods
+	// overrides/config
+	// overrides/resourcepacks
+	// overrides/shaderpacks
+
+	overridesDir := filepath.Join(projDir, "overrides")
+	if _, err := os.Stat(overridesDir); os.IsNotExist(err) {
+		err = os.MkdirAll(overridesDir, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	subDirs := []string{"mods", "config", "resourcepacks", "shaderpacks"}
+	for _, subDir := range subDirs {
+		fullPath := filepath.Join(overridesDir, subDir)
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			err = os.MkdirAll(fullPath, os.ModePerm)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	// if there is not a content.mp.sum.yaml file, create it
 	sumPath := filepath.Join(projDir, "content.mp.sum.yaml")
 	if _, err := os.Stat(sumPath); os.IsNotExist(err) {
