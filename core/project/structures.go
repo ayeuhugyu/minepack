@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -167,14 +168,54 @@ func (p *Project) GetAllContent() ([]ContentData, error) {
 		return nil, err
 	}
 
-	var contentList []ContentData
-	for _, sum := range *sums {
-		content, err := p.GetContent(sum.Slug)
-		if err != nil {
-			return nil, err
-		}
-		contentList = append(contentList, *content)
+	// if no content, return empty slice
+	if len(*sums) == 0 {
+		return []ContentData{}, nil
 	}
+
+	// use channels and goroutines for parallel processing
+	type result struct {
+		content *ContentData
+		err     error
+		index   int
+	}
+
+	resultsChan := make(chan result, len(*sums))
+	var wg sync.WaitGroup
+
+	// start a goroutine for each content item
+	for i, sum := range *sums {
+		wg.Add(1)
+		go func(index int, slug string) {
+			defer wg.Done()
+			content, err := p.GetContent(slug)
+			resultsChan <- result{content: content, err: err, index: index}
+		}(i, sum.Slug)
+	}
+
+	// close channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	// collect results and maintain order
+	contentList := make([]ContentData, len(*sums))
+	var firstError error
+
+	for res := range resultsChan {
+		if res.err != nil && firstError == nil {
+			firstError = res.err
+		}
+		if res.content != nil {
+			contentList[res.index] = *res.content
+		}
+	}
+
+	if firstError != nil {
+		return nil, firstError
+	}
+
 	return contentList, nil
 }
 

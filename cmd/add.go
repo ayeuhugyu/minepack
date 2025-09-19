@@ -290,6 +290,7 @@ func resolveDependenciesRecursively(ctx *depResolutionContext, contentData *proj
 				Id:   contentData.Id,
 			},
 		}
+		depContentData.AddedAsDependency = true
 
 		// display what we're adding
 		formatted := util.FormatContentData(*depContentData)

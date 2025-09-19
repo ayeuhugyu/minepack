@@ -10,7 +10,7 @@ import (
 	"minepack/util"
 	"os"
 
-	"github.com/schollz/progressbar/v3"
+	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
 )
 
@@ -71,19 +71,26 @@ var searchCmd = &cobra.Command{
 			query += arg
 		}
 
-		searchSpinner := progressbar.NewOptions(-1,
-			progressbar.OptionSetDescription("fetching minecraft versions..."),
-			progressbar.OptionSpinnerType(14),
-			progressbar.OptionClearOnFinish(),
-		)
-		searchSpinner.Add(1)
+		// search for the mod
+		var result *project.ContentData
+		var searchErr error
 
-		result, err := api.SearchAll(query, *packData)
+		err = spinner.New().
+			Title("searching for mods...").
+			Type(spinner.Dots).
+			Action(func() {
+				result, searchErr = api.SearchAll(query, *packData)
+			}).
+			Run()
+
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf(util.FormatError("spinner error: %s"), err)
 			return
 		}
-		searchSpinner.Finish()
+		if searchErr != nil {
+			fmt.Printf(util.FormatError("search failed: %s"), searchErr)
+			return
+		}
 		if result == nil {
 			fmt.Println(util.FormatError("no results found."))
 			return
