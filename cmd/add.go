@@ -387,6 +387,23 @@ var addCmd = &cobra.Command{
 			return
 		}
 
+		// Get flags for source preference
+		useModrinth, _ := cmd.Flags().GetBool("modrinth")
+		useCurseforge, _ := cmd.Flags().GetBool("curseforge")
+		
+		// Validate source flags
+		if useModrinth && useCurseforge {
+			fmt.Printf(util.FormatError("cannot specify both --modrinth and --curseforge flags\n"))
+			return
+		}
+		
+		// Override packData default source if flags are provided
+		if useModrinth {
+			packData.DefaultSource = "modrinth"
+		} else if useCurseforge {
+			packData.DefaultSource = "curseforge"
+		}
+
 		// validate arguments
 		if len(args) < 1 {
 			fmt.Println("please provide a mod to add.")
@@ -481,4 +498,6 @@ func init() {
 	// addCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	addCmd.Flags().BoolP("choose-dependencies", "d", false, "when enabled, you will manually choose which dependencies to add (if applicable). by default, all required dependencies are added automatically.")
+	addCmd.Flags().Bool("modrinth", false, "search and add mods from Modrinth only")
+	addCmd.Flags().Bool("curseforge", false, "search and add mods from CurseForge only")
 }

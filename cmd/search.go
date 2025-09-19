@@ -37,6 +37,21 @@ var searchCmd = &cobra.Command{
 		// Get flags
 		modloader, _ := cmd.Flags().GetString("modloader")
 		version, _ := cmd.Flags().GetString("version")
+		useModrinth, _ := cmd.Flags().GetBool("modrinth")
+		useCurseforge, _ := cmd.Flags().GetBool("curseforge")
+		
+		// Validate source flags
+		if useModrinth && useCurseforge {
+			fmt.Printf(util.FormatError("cannot specify both --modrinth and --curseforge flags\n"))
+			return
+		}
+		
+		// Override packData default source if flags are provided
+		if useModrinth {
+			packData.DefaultSource = "modrinth"
+		} else if useCurseforge {
+			packData.DefaultSource = "curseforge"
+		}
 
 		// override packData if flags are provided
 		if modloader != "" {
@@ -107,6 +122,8 @@ func init() {
 	// Add flags for modloader and version
 	searchCmd.Flags().StringP("modloader", "m", "", "specify the modloader (e.g. forge, fabric)")
 	searchCmd.Flags().StringP("version", "v", "", "specify the Minecraft version (e.g. 1.20.1)")
+	searchCmd.Flags().Bool("modrinth", false, "search mods from Modrinth only")
+	searchCmd.Flags().Bool("curseforge", false, "search mods from CurseForge only")
 
 	// Here you will define your flags and configuration settings.
 
