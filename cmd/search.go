@@ -39,13 +39,13 @@ var searchCmd = &cobra.Command{
 		version, _ := cmd.Flags().GetString("version")
 		useModrinth, _ := cmd.Flags().GetBool("modrinth")
 		useCurseforge, _ := cmd.Flags().GetBool("curseforge")
-		
+
 		// Validate source flags
 		if useModrinth && useCurseforge {
-			fmt.Printf(util.FormatError("cannot specify both --modrinth and --curseforge flags\n"))
+			fmt.Println(util.FormatError("cannot specify both --modrinth and --curseforge flags\n"))
 			return
 		}
-		
+
 		// Override packData default source if flags are provided
 		if useModrinth {
 			packData.DefaultSource = "modrinth"
