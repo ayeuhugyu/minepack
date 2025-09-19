@@ -13,7 +13,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/huh"
-	"github.com/schollz/progressbar/v3"
+	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
 )
 
@@ -39,41 +39,55 @@ func newDepResolutionContext(packData *project.Project, chooseDeps bool) *depRes
 
 // fetches a project and its versions based on the source
 func fetchProjectData(identifier string, packData *project.Project) (*project.ContentData, error) {
-	spinner := progressbar.NewOptions(-1,
-		progressbar.OptionSetDescription(fmt.Sprintf("fetching %s...", identifier)),
-		progressbar.OptionSpinnerType(14),
-		progressbar.OptionClearOnFinish(),
-	)
-	spinner.Add(1)
-	defer spinner.Finish()
+	var result *project.ContentData
+	var fetchErr error
 
-	if packData.DefaultSource == "modrinth" {
-		projectData, err := modrinth.GetProject(identifier)
-		if err != nil || projectData == nil {
-			return nil, fmt.Errorf("failed to fetch modrinth project %s: %w", identifier, err)
-		}
+	err := spinner.New().
+		Title(fmt.Sprintf("fetching %s...", identifier)).
+		Type(spinner.Dots).
+		Action(func() {
+			if packData.DefaultSource == "modrinth" {
+				projectData, err := modrinth.GetProject(identifier)
+				if err != nil || projectData == nil {
+					fetchErr = fmt.Errorf("failed to fetch modrinth project %s: %w", identifier, err)
+					return
+				}
 
-		versions, err := modrinth.GetProjectVersions(identifier, *packData)
-		if err != nil || len(versions) == 0 {
-			return nil, fmt.Errorf("no compatible versions found for modrinth project %s", identifier)
-		}
+				versions, err := modrinth.GetProjectVersions(identifier, *packData)
+				if err != nil || len(versions) == 0 {
+					fetchErr = fmt.Errorf("no compatible versions found for modrinth project %s", identifier)
+					return
+				}
 
-		contentData := modrinth.ConvertProjectToContentData(projectData, versions[0])
-		return &contentData, nil
-	} else {
-		projectData, err := curseforge.GetProject(identifier)
-		if err != nil || projectData == nil {
-			return nil, fmt.Errorf("failed to fetch curseforge project %s: %w", identifier, err)
-		}
+				contentData := modrinth.ConvertProjectToContentData(projectData, versions[0])
+				result = &contentData
+			} else {
+				projectData, err := curseforge.GetProject(identifier)
+				if err != nil || projectData == nil {
+					fetchErr = fmt.Errorf("failed to fetch curseforge project %s: %w", identifier, err)
+					return
+				}
 
-		versions, err := curseforge.GetProjectVersions(identifier, *packData)
-		if err != nil || len(versions) == 0 {
-			return nil, fmt.Errorf("no compatible versions found for curseforge project %s", identifier)
-		}
+				versions, err := curseforge.GetProjectVersions(identifier, *packData)
+				if err != nil || len(versions) == 0 {
+					fetchErr = fmt.Errorf("no compatible versions found for curseforge project %s", identifier)
+					return
+				}
 
-		contentData := curseforge.ConvertModToContentData(projectData, &versions[0])
-		return &contentData, nil
+				contentData := curseforge.ConvertModToContentData(projectData, &versions[0])
+				result = &contentData
+			}
+		}).
+		Run()
+
+	if err != nil {
+		return nil, fmt.Errorf("spinner error: %w", err)
 	}
+	if fetchErr != nil {
+		return nil, fetchErr
+	}
+
+	return result, nil
 }
 
 // handles incompatible dependencies found in the project
@@ -388,18 +402,23 @@ var addCmd = &cobra.Command{
 		}
 
 		// search for the mod
-		searchSpinner := progressbar.NewOptions(-1,
-			progressbar.OptionSetDescription("searching for mods..."),
-			progressbar.OptionSpinnerType(14),
-			progressbar.OptionClearOnFinish(),
-		)
-		searchSpinner.Add(1)
+		var result *project.ContentData
+		var searchErr error
 
-		result, err := api.SearchAll(query, *packData)
-		searchSpinner.Finish()
+		err = spinner.New().
+			Title("searching for mods...").
+			Type(spinner.Dots).
+			Action(func() {
+				result, searchErr = api.SearchAll(query, *packData)
+			}).
+			Run()
 
 		if err != nil {
-			fmt.Printf(util.FormatError("search failed: %s"), err)
+			fmt.Printf(util.FormatError("spinner error: %s"), err)
+			return
+		}
+		if searchErr != nil {
+			fmt.Printf(util.FormatError("search failed: %s"), searchErr)
 			return
 		}
 		if result == nil {

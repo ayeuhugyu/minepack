@@ -13,7 +13,7 @@ import (
 	"minepack/util/version"
 
 	"github.com/charmbracelet/huh"
-	"github.com/schollz/progressbar/v3"
+	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
 )
 
@@ -78,24 +78,29 @@ var initCmd = &cobra.Command{
 
 		fmt.Printf("\n")
 		// fetch minecraft versions
-		gameVersionSpinner := progressbar.NewOptions(-1,
-			progressbar.OptionSetDescription("fetching minecraft versions..."),
-			progressbar.OptionSpinnerType(14),
-			progressbar.OptionClearOnFinish(),
-		)
-		gameVersionSpinner.Add(1)
+		var allGameVersions *core.MinecraftManifest
+		var fetchErr error
 
-		allGameVersions, err := core.FetchMinecraftVersions()
+		err = spinner.New().
+			Title("fetching minecraft versions...").
+			Type(spinner.Dots).
+			Action(func() {
+				allGameVersions, fetchErr = core.FetchMinecraftVersions()
+			}).
+			Run()
+
+		if err != nil {
+			fmt.Printf(util.FormatError("spinner error: %v\n"), err)
+			return
+		}
+		if fetchErr != nil {
+			fmt.Printf(util.FormatError("failed to fetch minecraft versions: %v\n"), fetchErr)
+			return
+		}
+
 		var allGameVersionsFlat []string
 		for _, v := range allGameVersions.Versions {
 			allGameVersionsFlat = append(allGameVersionsFlat, v.ID)
-		}
-
-		gameVersionSpinner.Finish()
-
-		if err != nil {
-			fmt.Printf(util.FormatError("failed to fetch minecraft versions: %v\n"), err)
-			return
 		}
 
 		// select game version
@@ -144,20 +149,23 @@ var initCmd = &cobra.Command{
 
 		fmt.Printf("\n")
 		// fetch modloader versions
+		var allModloaderVersions map[string]string
+		var modloaderErr error
 
-		modloaderVersionSpinner := progressbar.NewOptions(-1,
-			progressbar.OptionSetDescription("fetching modloader versions..."),
-			progressbar.OptionSpinnerType(14),
-			progressbar.OptionClearOnFinish(),
-		)
-		modloaderVersionSpinner.Add(1)
-
-		allModloaderVersions := core.GetAllLatestVersions(gameVersion)
-
-		modloaderVersionSpinner.Finish()
+		err = spinner.New().
+			Title("fetching modloader versions...").
+			Type(spinner.Dots).
+			Action(func() {
+				allModloaderVersions = core.GetAllLatestVersions(gameVersion)
+			}).
+			Run()
 
 		if err != nil {
-			fmt.Printf(util.FormatError("failed to fetch modloader versions: %v\n"), err)
+			fmt.Printf(util.FormatError("spinner error: %v\n"), err)
+			return
+		}
+		if modloaderErr != nil {
+			fmt.Printf(util.FormatError("failed to fetch modloader versions: %v\n"), modloaderErr)
 			return
 		}
 		// select modloader
