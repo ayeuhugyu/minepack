@@ -7,6 +7,47 @@ import (
 	"codeberg.org/jmansfield/go-modrinth/modrinth"
 )
 
+func modrinthProjectTypeToContentType(pt string) project.ContentType {
+	switch pt {
+	case "mod":
+		return project.Mod
+	case "resourcepack":
+		return project.Resourcepack
+	case "shader":
+		return project.Shaderpack
+	default:
+		return project.Mod
+	}
+}
+
+func modrinthProjectTypeToFileLocationPrefix(pt string) string {
+	switch pt {
+	case "mod":
+		return "mods/"
+	case "resourcepack":
+		return "resourcepacks/"
+	case "shader":
+		return "shaderpacks/"
+	default:
+		return "mods/"
+	}
+}
+
+func modrinthProjectSideToModSideData(pt string) project.ModSideData {
+	switch pt {
+	case "required":
+		return project.SideRequired
+	case "optional":
+		return project.SideOptional
+	case "unsupported":
+		return project.SideUnsupported
+	case "unknown":
+		return project.SideUnknown
+	default:
+		return project.SideRequired
+	}
+}
+
 // converts a full project to ContentData with version info
 func ConvertProjectToContentData(proj *modrinth.Project, version *modrinth.Version) project.ContentData {
 	// handle pointer dereferences safely
@@ -26,11 +67,14 @@ func ConvertProjectToContentData(proj *modrinth.Project, version *modrinth.Versi
 	}
 
 	contentData := project.ContentData{
-		ContentType:  project.Mod,
-		Name:         name,
-		Id:           id,
-		Slug:         slug,
-		Side:         project.Both,
+		ContentType: modrinthProjectTypeToContentType(*proj.ProjectType),
+		Name:        name,
+		Id:          id,
+		Slug:        slug,
+		Side: project.ModSide{
+			Client: modrinthProjectSideToModSideData(*proj.ClientSide),
+			Server: modrinthProjectSideToModSideData(*proj.ServerSide),
+		},
 		PageUrl:      fmt.Sprintf("https://modrinth.com/mod/%s", slug),
 		Source:       project.Modrinth,
 		Dependencies: []project.Dependency{},
@@ -72,7 +116,7 @@ func ConvertProjectToContentData(proj *modrinth.Project, version *modrinth.Versi
 			contentData.File = project.FileData{
 				Filename: filename,
 				Filesize: size,
-				Filepath: filename,
+				Filepath: modrinthProjectTypeToFileLocationPrefix(*proj.ProjectType) + filename,
 			}
 
 			// add hashes if available

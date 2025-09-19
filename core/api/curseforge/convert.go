@@ -8,11 +8,14 @@ import (
 // converts curseforge Mod to ContentData
 func ConvertToContentData(mod *Mod) project.ContentData {
 	contentData := project.ContentData{
-		ContentType:  getContentType(mod.ClassID),
-		Name:         mod.Name,
-		Id:           fmt.Sprintf("%d", mod.ID),
-		Slug:         mod.Slug,
-		Side:         project.Both, // default, curseforge doesn't have explicit client/server side info in search
+		ContentType: getContentType(mod.ClassID),
+		Name:        mod.Name,
+		Id:          fmt.Sprintf("%d", mod.ID),
+		Slug:        mod.Slug,
+		Side: project.ModSide{
+			Server: project.SideRequired,
+			Client: project.SideRequired,
+		}, // default, curseforge doesn't have explicit client/server side info in search
 		PageUrl:      fmt.Sprintf("https://www.curseforge.com/minecraft/mc-mods/%s", mod.Slug),
 		Source:       project.Curseforge,
 		Dependencies: []project.Dependency{},
@@ -51,11 +54,14 @@ func ConvertToContentData(mod *Mod) project.ContentData {
 // converts a full Mod with specific file to ContentData
 func ConvertModToContentData(mod *Mod, file *File) project.ContentData {
 	contentData := project.ContentData{
-		ContentType:  getContentType(mod.ClassID),
-		Name:         mod.Name,
-		Id:           fmt.Sprintf("%d", mod.ID),
-		Slug:         mod.Slug,
-		Side:         project.Both,
+		ContentType: getContentType(mod.ClassID),
+		Name:        mod.Name,
+		Id:          fmt.Sprintf("%d", mod.ID),
+		Slug:        mod.Slug,
+		Side: project.ModSide{
+			Server: project.SideRequired,
+			Client: project.SideRequired,
+		},
 		PageUrl:      fmt.Sprintf("https://www.curseforge.com/minecraft/mc-mods/%s", mod.Slug),
 		Source:       project.Curseforge,
 		Dependencies: []project.Dependency{},

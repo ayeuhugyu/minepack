@@ -311,43 +311,15 @@ func StringToHashFormat(s string) HashFormat {
 	}
 }
 
-type ModSide int
+type ModSideData int
 
 const (
-	None ModSide = iota
-	Client
-	Server
-	Both
+	SideUnsupported ModSideData = iota
+	SideOptional
+	SideRequired
+	SideUnknown
+	SideInapplicable
 )
-
-func ModSideToString(ms ModSide) string {
-	switch ms {
-	case None:
-		return "none"
-	case Client:
-		return "client"
-	case Server:
-		return "server"
-	case Both:
-		return "both"
-	default:
-		return "unknown"
-	}
-}
-func StringToModSide(s string) ModSide {
-	switch s {
-	case "none":
-		return None
-	case "client":
-		return Client
-	case "server":
-		return Server
-	case "both":
-		return Both
-	default:
-		return -1
-	}
-}
 
 type Source int
 
@@ -433,6 +405,10 @@ type RequiredBy struct {
 	Id   string
 }
 
+type ModSide struct {
+	Server ModSideData
+	Client ModSideData
+}
 type ContentData struct {
 	// todo: finish
 	ContentType       ContentType
