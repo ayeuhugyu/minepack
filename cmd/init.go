@@ -174,7 +174,7 @@ var initCmd = &cobra.Command{
 		// enforce specific ordering of modloaders
 		modloaderOrder := []string{"fabric", "forge", "quilt", "neoforge", "liteloader"}
 		var availableModloaderNames []string
-		
+
 		for _, name := range modloaderOrder {
 			if version, exists := allModloaderVersions[name]; exists {
 				if name == "minecraft" {
