@@ -132,7 +132,7 @@ func findBySearch(query string, packData project.Project) (*project.ContentData,
 				huh.NewGroup(
 					huh.NewSelect[*modrinthApi.SearchResult]().
 						Title("multiple modrinth search results found").
-						Description("please select the best matching mod").
+						Description("please select the best matching mod (or press ctrl+c to cancel)").
 						Options(opts...).
 						Value(&chosen),
 				),
