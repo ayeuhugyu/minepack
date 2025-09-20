@@ -303,17 +303,55 @@ func downloadWorker(workerID int, jobs <-chan project.ContentData, results chan<
 	}
 }
 
-// filterContent filters content based on flags
+// filterContent filters content based on flags with dependency resolution
 func filterContent(allContent []project.ContentData, serverOnly, clientOnly bool, source string) []project.ContentData {
 	var filtered []project.ContentData
 
+	// First pass: build a map for quick lookup
+	contentMap := make(map[string]project.ContentData)
 	for _, content := range allContent {
-		// Filter by side
-		if serverOnly && content.Side.Server != 2 { // 2 = required
+		contentMap[content.Slug] = content
+	}
+
+	// Function to recursively collect dependencies
+	var collectDependencies func(content project.ContentData, visited map[string]bool) []project.ContentData
+	collectDependencies = func(content project.ContentData, visited map[string]bool) []project.ContentData {
+		if visited[content.Slug] {
+			return nil // Avoid circular dependencies
+		}
+		visited[content.Slug] = true
+
+		var deps []project.ContentData
+		deps = append(deps, content)
+
+		// Add required dependencies
+		for _, dep := range content.Dependencies {
+			if dep.DependencyType == project.Required {
+				if depContent, exists := contentMap[dep.Slug]; exists {
+					deps = append(deps, collectDependencies(depContent, visited)...)
+				}
+			}
+		}
+
+		return deps
+	}
+
+	// Second pass: filter content and include dependencies
+	included := make(map[string]bool)
+
+	for _, content := range allContent {
+		// Skip if already processed
+		if included[content.Slug] {
 			continue
 		}
+
+		// Check side requirements for the main mod
+		includeContent := true
+		if serverOnly && content.Side.Server != 2 { // 2 = required
+			includeContent = false
+		}
 		if clientOnly && content.Side.Client != 2 { // 2 = required
-			continue
+			includeContent = false
 		}
 
 		// Filter by source
@@ -328,11 +366,54 @@ func filterContent(allContent []project.ContentData, serverOnly, clientOnly bool
 				contentSource = "unknown"
 			}
 			if contentSource != source {
-				continue
+				includeContent = false
 			}
 		}
 
-		filtered = append(filtered, content)
+		if includeContent {
+			// Collect this mod and all its required dependencies
+			visited := make(map[string]bool)
+			dependencies := collectDependencies(content, visited)
+
+			for _, dep := range dependencies {
+				if !included[dep.Slug] {
+					// For dependencies, we're more lenient with side requirements
+					// If the parent mod is included, we include required dependencies regardless of their side
+					// unless they're explicitly incompatible
+					depInclude := true
+
+					// Still respect source filtering for dependencies
+					if source != "" {
+						var depSource string
+						switch dep.Source {
+						case 0:
+							depSource = "modrinth"
+						case 1:
+							depSource = "curseforge"
+						default:
+							depSource = "unknown"
+						}
+						if depSource != source {
+							depInclude = false
+						}
+					}
+
+					// Don't include client-only dependencies for server-only filtering
+					if serverOnly && dep.Side.Client == 2 && dep.Side.Server == 0 {
+						depInclude = false
+					}
+					// Don't include server-only dependencies for client-only filtering
+					if clientOnly && dep.Side.Server == 2 && dep.Side.Client == 0 {
+						depInclude = false
+					}
+
+					if depInclude {
+						filtered = append(filtered, dep)
+						included[dep.Slug] = true
+					}
+				}
+			}
+		}
 	}
 
 	return filtered
