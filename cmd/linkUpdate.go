@@ -432,7 +432,7 @@ var linkUpdateCmd = &cobra.Command{
 			downloadSize += content.File.Filesize
 		}
 
-		totalDiskUsage := downloadSize * int64(len(linked.Links))
+		totalDiskUsage := downloadSize * int64(len(linked.Links)+1) // +1 for cache
 
 		// Show summary and ask for confirmation
 		var finalString string
