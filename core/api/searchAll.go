@@ -103,20 +103,7 @@ func findBySearch(query string, packData project.Project) (*project.ContentData,
 		if err != nil {
 			return nil, err
 		}
-		if len(mrresults) == 1 {
-			mrversions, err := modrinth.GetProjectVersions(*mrresults[0].Slug, packData)
-			if err != nil || len(mrversions) == 0 {
-				return nil, err
-			}
-			mrproject, err := modrinth.GetProject(*mrresults[0].Slug)
-			if err != nil || mrproject == nil {
-				return nil, err
-			}
-			resultData := modrinth.ConvertProjectToContentData(mrproject, mrversions[0])
-			result = &resultData
-			resultFound = true
-		}
-		if len(mrresults) > 1 {
+		if len(mrresults) > 0 {
 			// if multiple results, use huh to ask the user to pick one
 			var opts []huh.Option[*modrinthApi.SearchResult]
 
