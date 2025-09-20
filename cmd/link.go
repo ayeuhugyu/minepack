@@ -242,8 +242,54 @@ var linkRemoveCmd = &cobra.Command{
 	},
 }
 
+// linkListCmd represents the link list command
+var linkListCmd = &cobra.Command{
+	Use:     "list",
+	Short:   "list all linked minecraft instance folders",
+	Long:    `displays all minecraft instance folders linked to this modpack`,
+	Aliases: []string{"ls"},
+	Run: func(cmd *cobra.Command, args []string) {
+		// get current working directory and parse project
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Printf(util.FormatError("error getting current working directory: %s"), err)
+			return
+		}
+
+		_, err = project.ParseProject(cwd)
+		if err != nil {
+			fmt.Printf(util.FormatError("error parsing project: %s"), err)
+			return
+		}
+
+		// Load current linked folders
+		linked, err := loadLinkedFolders(cwd)
+		if err != nil {
+			fmt.Printf(util.FormatError("error loading linked folders: %s"), err)
+			return
+		}
+
+		if len(linked.Links) == 0 {
+			fmt.Println("no linked folders found")
+			fmt.Println("use 'minepack link add [folder]' to add a link")
+			return
+		}
+
+		fmt.Printf("linked minecraft instances (%d):\n", len(linked.Links))
+		for i, link := range linked.Links {
+			// Check if folder still exists
+			if _, err := os.Stat(link); os.IsNotExist(err) {
+				fmt.Printf("  %d. %s %s\n", i+1, link, util.FormatWarning("(missing)"))
+			} else {
+				fmt.Printf("  %d. %s\n", i+1, link)
+			}
+		}
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(linkCmd)
 	linkCmd.AddCommand(linkAddCmd)
 	linkCmd.AddCommand(linkRemoveCmd)
+	linkCmd.AddCommand(linkListCmd)
 }
