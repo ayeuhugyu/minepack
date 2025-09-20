@@ -255,7 +255,7 @@ func (m downloadProgress) View() string {
 	}
 
 	if m.done {
-		return fmt.Sprintf("✓ downloaded all %d files\n", m.total)
+		return fmt.Sprintf(util.FormatSuccess("downloaded all %d files\n"), m.total)
 	}
 
 	// Global progress
