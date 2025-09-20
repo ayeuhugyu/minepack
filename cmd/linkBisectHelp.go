@@ -15,7 +15,7 @@ var linkBisectHelpCmd = &cobra.Command{
 	Short: "detailed guide on using bisection to find problematic mods",
 	Long:  `comprehensive help for using the bisection feature to systematically find problematic mods`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(`
+		fmt.Printf(`
 🔍 minepack bisection guide
 
 what is bisection?
