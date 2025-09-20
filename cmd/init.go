@@ -171,15 +171,20 @@ var initCmd = &cobra.Command{
 		// select modloader
 
 		// use modloaderVersions to determine the items in the select
+		// enforce specific ordering of modloaders
+		modloaderOrder := []string{"fabric", "forge", "quilt", "neoforge", "liteloader"}
 		var availableModloaderNames []string
-		for name := range allModloaderVersions {
-			if name == "minecraft" {
-				continue
+		
+		for _, name := range modloaderOrder {
+			if version, exists := allModloaderVersions[name]; exists {
+				if name == "minecraft" {
+					continue
+				}
+				if strings.HasPrefix(version, "error:") {
+					continue
+				}
+				availableModloaderNames = append(availableModloaderNames, name)
 			}
-			if strings.HasPrefix(allModloaderVersions[name], "error:") {
-				continue
-			}
-			availableModloaderNames = append(availableModloaderNames, name)
 		}
 
 		modloaderForm := huh.NewForm(
