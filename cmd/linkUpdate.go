@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 
+	"github.com/charmbracelet/bubbles/progress"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/spf13/cobra"
 )
@@ -47,8 +49,8 @@ func getMissingFiles(linkPath string, allContent []project.ContentData) ([]proje
 	return missingFiles, nil
 }
 
-// downloadFile downloads a file from URL to the specified path
-func downloadFile(url, filepath string) error {
+// downloadFile downloads a file from URL to the specified path with progress tracking
+func downloadFileWithProgress(url, filepath string, workerID int, name string, progressCh chan<- downloadMsg) error {
 	// Create the file
 	out, err := os.Create(filepath)
 	if err != nil {
@@ -68,8 +70,16 @@ func downloadFile(url, filepath string) error {
 		return fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
+	// Create progress writer
+	pw := &progressWriter{
+		workerID:   workerID,
+		name:       name,
+		total:      resp.ContentLength,
+		progressCh: progressCh,
+	}
+
+	// Write the body to file with progress tracking
+	_, err = io.Copy(out, io.TeeReader(resp.Body, pw))
 	return err
 }
 
@@ -121,12 +131,234 @@ var updateSummaryStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("#874BFD")).
 	Margin(0, 1)
 
+// Progress bar model for downloads
+type downloadProgress struct {
+	globalProgress   progress.Model
+	workerProgresses [3]progress.Model
+	workerNames      [3]string
+	workerActive     [3]bool
+	workerProgress   [3]float64
+	current          int
+	total            int
+	done             bool
+	err              error
+}
+
+func newDownloadProgress(total int) downloadProgress {
+	globalProg := progress.New(progress.WithDefaultGradient())
+	globalProg.Width = 60
+
+	var workerProgs [3]progress.Model
+	for i := 0; i < 3; i++ {
+		workerProgs[i] = progress.New(progress.WithDefaultGradient())
+		workerProgs[i].Width = 40
+	}
+
+	return downloadProgress{
+		globalProgress:   globalProg,
+		workerProgresses: workerProgs,
+		total:            total,
+	}
+}
+
+type downloadMsg struct {
+	workerID int
+	name     string
+	progress float64 // 0.0 to 1.0 for real-time progress
+	err      error
+	complete bool
+}
+
+type downloadCompleteMsg struct{}
+
+// progressWriter tracks download progress and sends updates
+type progressWriter struct {
+	workerID   int
+	name       string
+	total      int64
+	downloaded int64
+	progressCh chan<- downloadMsg
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n := len(p)
+	pw.downloaded += int64(n)
+
+	if pw.total > 0 {
+		progress := float64(pw.downloaded) / float64(pw.total)
+		// Send progress update
+		select {
+		case pw.progressCh <- downloadMsg{
+			workerID: pw.workerID,
+			name:     pw.name,
+			progress: progress,
+			complete: false,
+		}:
+		default:
+			// Don't block if channel is full
+		}
+	}
+
+	return n, nil
+}
+
+func (m downloadProgress) Init() tea.Cmd {
+	return nil
+}
+
+func (m downloadProgress) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case downloadMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+
+		// Update worker progress
+		if msg.workerID >= 0 && msg.workerID < 3 {
+			if msg.complete {
+				m.workerActive[msg.workerID] = false
+				m.workerNames[msg.workerID] = ""
+				m.workerProgress[msg.workerID] = 1.0
+				m.current++
+			} else {
+				m.workerActive[msg.workerID] = true
+				m.workerNames[msg.workerID] = msg.name
+				m.workerProgress[msg.workerID] = msg.progress
+			}
+		}
+
+		if m.current >= m.total {
+			m.done = true
+			return m, tea.Quit
+		}
+		return m, nil
+	case downloadCompleteMsg:
+		m.done = true
+		return m, tea.Quit
+	default:
+		var cmd tea.Cmd
+		globalModel, cmd := m.globalProgress.Update(msg)
+		m.globalProgress = globalModel.(progress.Model)
+
+		for i := 0; i < 3; i++ {
+			workerModel, _ := m.workerProgresses[i].Update(msg)
+			m.workerProgresses[i] = workerModel.(progress.Model)
+		}
+		return m, cmd
+	}
+}
+
+func (m downloadProgress) View() string {
+	if m.err != nil {
+		return fmt.Sprintf("download failed: %s\n", m.err.Error())
+	}
+
+	if m.done {
+		return fmt.Sprintf("✓ downloaded all %d files\n", m.total)
+	}
+
+	// Global progress
+	globalPercent := float64(m.current) / float64(m.total)
+	view := fmt.Sprintf("overall progress: %d/%d\n%s\n\n",
+		m.current, m.total, m.globalProgress.ViewAs(globalPercent))
+
+	// Individual worker progress bars
+	view += "downloading:\n"
+	for i := 0; i < 3; i++ {
+		if m.workerActive[i] {
+			view += fmt.Sprintf("worker %d: %s\n%s\n",
+				i+1, m.workerNames[i], m.workerProgresses[i].ViewAs(m.workerProgress[i]))
+		} else {
+			view += fmt.Sprintf("worker %d: waiting...\n%s\n",
+				i+1, m.workerProgresses[i].ViewAs(m.workerProgress[i]))
+		}
+	}
+
+	return view
+}
+
+// downloadWorker handles downloading files in parallel
+func downloadWorker(workerID int, jobs <-chan project.ContentData, results chan<- downloadMsg, cacheDir string) {
+	for content := range jobs {
+		// Signal start of download
+		results <- downloadMsg{workerID: workerID, name: content.Name, progress: 0.0, complete: false}
+
+		cachePath := filepath.Join(cacheDir, content.File.Filepath)
+
+		// Create directory if needed
+		if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+			results <- downloadMsg{workerID: workerID, name: content.Name, err: fmt.Errorf("failed to create cache directory: %w", err), complete: true}
+			continue
+		}
+
+		// Skip if already exists in cache
+		if _, err := os.Stat(cachePath); err == nil {
+			results <- downloadMsg{workerID: workerID, name: content.Name, progress: 1.0, complete: true}
+			continue
+		}
+
+		err := downloadFileWithProgress(content.DownloadUrl, cachePath, workerID, content.Name, results)
+		results <- downloadMsg{workerID: workerID, name: content.Name, progress: 1.0, err: err, complete: true}
+	}
+}
+
+// filterContent filters content based on flags
+func filterContent(allContent []project.ContentData, serverOnly, clientOnly bool, source string) []project.ContentData {
+	var filtered []project.ContentData
+
+	for _, content := range allContent {
+		// Filter by side
+		if serverOnly && content.Side.Server != 2 { // 2 = required
+			continue
+		}
+		if clientOnly && content.Side.Client != 2 { // 2 = required
+			continue
+		}
+
+		// Filter by source
+		if source != "" {
+			var contentSource string
+			switch content.Source {
+			case 0:
+				contentSource = "modrinth"
+			case 1:
+				contentSource = "curseforge"
+			default:
+				contentSource = "unknown"
+			}
+			if contentSource != source {
+				continue
+			}
+		}
+
+		filtered = append(filtered, content)
+	}
+
+	return filtered
+}
+
 // linkUpdateCmd represents the link update command
 var linkUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "update all linked Minecraft instances with current modpack content",
 	Long:  `downloads missing mods and syncs overrides to all linked Minecraft instance folders`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Get flags
+		serverOnly, _ := cmd.Flags().GetBool("server-only")
+		clientOnly, _ := cmd.Flags().GetBool("client-only")
+		source, _ := cmd.Flags().GetString("source")
+
+		// Validate conflicting flags
+		if serverOnly && clientOnly {
+			fmt.Print(util.FormatError("cannot use --server-only and --client-only together\n"))
+			return
+		}
+
+		if source != "" && source != "modrinth" && source != "curseforge" {
+			fmt.Printf(util.FormatError("invalid source: %s (must be 'modrinth' or 'curseforge')\n"), source)
+			return
+		}
 		// get current working directory and parse project
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -159,8 +391,11 @@ var linkUpdateCmd = &cobra.Command{
 			return
 		}
 
+		// Apply filters
+		allContent = filterContent(allContent, serverOnly, clientOnly, source)
+
 		if len(allContent) == 0 {
-			fmt.Println("No mods found in modpack.")
+			fmt.Println("no mods found matching the specified filters.")
 			return
 		}
 
@@ -238,41 +473,53 @@ var linkUpdateCmd = &cobra.Command{
 
 			// Download missing files to cache
 			if len(allMissingFiles) > 0 {
-				fmt.Printf("downloading %d missing file(s)...\n", len(allMissingFiles))
+				// Set up parallel download with progress bar
+				jobs := make(chan project.ContentData, len(allMissingFiles))
+				results := make(chan downloadMsg, len(allMissingFiles))
 
-				for i, content := range allMissingFiles {
-					var downloadErr error
-					err := spinner.New().
-						Title(fmt.Sprintf("downloading %s (%d/%d)", content.Name, i+1, len(allMissingFiles))).
-						Type(spinner.Dots).
-						Action(func() {
-							cachePath := filepath.Join(cacheDir, content.File.Filepath)
+				// Start 3 worker goroutines
+				const numWorkers = 3
+				var wg sync.WaitGroup
+				for i := 0; i < numWorkers; i++ {
+					wg.Add(1)
+					go func(workerID int) {
+						defer wg.Done()
+						downloadWorker(workerID, jobs, results, cacheDir)
+					}(i)
+				}
 
-							// Create directory if needed
-							if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
-								downloadErr = fmt.Errorf("failed to create cache directory: %w", err)
-								return
-							}
+				// Send jobs
+				for _, content := range allMissingFiles {
+					jobs <- content
+				}
+				close(jobs)
 
-							// Skip if already exists in cache
-							if _, err := os.Stat(cachePath); err == nil {
-								return
-							}
+				// Set up progress bar
+				prog := newDownloadProgress(len(allMissingFiles))
+				p := tea.NewProgram(prog)
 
-							downloadErr = downloadFile(content.DownloadUrl, cachePath)
-						}).
-						Run()
+				// Monitor results and update progress
+				go func() {
+					defer func() {
+						wg.Wait()
+						p.Send(downloadCompleteMsg{})
+					}()
 
-					if err != nil {
-						fmt.Printf(util.FormatError("spinner error for %s: %s\n"), content.Name, err)
-						continue
+					completed := 0
+					for completed < len(allMissingFiles) {
+						result := <-results
+						p.Send(result)
+						// Only count completed files, not progress updates
+						if result.complete {
+							completed++
+						}
 					}
-					if downloadErr != nil {
-						fmt.Printf(util.FormatError("failed to download %s: %s\n"), content.Name, downloadErr)
-						continue
-					}
+				}()
 
-					fmt.Printf(util.FormatSuccess("downloaded %s\n"), content.Name)
+				// Run the progress bar
+				if _, err := p.Run(); err != nil {
+					fmt.Printf(util.FormatError("progress bar error: %s\n"), err)
+					return
 				}
 			}
 
@@ -333,4 +580,9 @@ var linkUpdateCmd = &cobra.Command{
 
 func init() {
 	linkCmd.AddCommand(linkUpdateCmd)
+
+	// Add filtering flags
+	linkUpdateCmd.Flags().Bool("server-only", false, "only download server-side mods")
+	linkUpdateCmd.Flags().Bool("client-only", false, "only download client-side mods")
+	linkUpdateCmd.Flags().String("source", "", "only download from specific source (modrinth|curseforge)")
 }
