@@ -1,0 +1,75 @@
+name: Build and Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            ext: .exe
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build binary
+        run: |
+          TAG_VERSION=${GITHUB_REF_NAME}
+          OUTPUT_NAME="minepack-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-X minepack/util/version.Version=$TAG_VERSION" -o "build/$OUTPUT_NAME" .
+        shell: bash
+
+      - name: Upload binaries as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: minepack-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: build/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: minepack-*
+          path: build
+          merge-multiple: true
+
+      - name: Upload binaries to existing GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/*
+          fail_on_unmatched_files: false
+          draft: false
+          prerelease: false
+          tag_name: ${{ github.ref_name }}
+          # Do not set 'body' or 'generate_release_notes' so manual changelog is preserved
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
