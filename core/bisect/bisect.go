@@ -20,6 +20,87 @@ type BisectState struct {
 	ModFiles       map[string]string   `yaml:"mod_files"`    // slug -> filename
 	Created        string              `yaml:"created"`
 }
+// ManualEnableMod enables a mod by removing it from DisabledMods and adding to EnabledMods in the current step
+func (bs *BisectState) ManualEnableMod(modSlug string) error {
+	if bs.CurrentStep < 0 || bs.CurrentStep >= len(bs.History) {
+		return fmt.Errorf("invalid bisection step")
+	}
+	step := &bs.History[bs.CurrentStep]
+	// Remove from DisabledMods
+	newDisabled := []string{}
+	for _, m := range step.DisabledMods {
+		if m != modSlug {
+			newDisabled = append(newDisabled, m)
+		}
+	}
+	step.DisabledMods = newDisabled
+	// Add to EnabledMods if not present
+	found := false
+	for _, m := range step.EnabledMods {
+		if m == modSlug {
+			found = true
+			break
+		}
+	}
+	if !found {
+		step.EnabledMods = append(step.EnabledMods, modSlug)
+	}
+	// Actually enable the mod file
+	modsDir := filepath.Join(bs.LinkedInstance, "mods")
+	filename, exists := bs.ModFiles[modSlug]
+	if !exists {
+		return fmt.Errorf("mod file not found for slug: %s", modSlug)
+	}
+	disabledPath := filepath.Join(modsDir, filename+".disabled")
+	enabledPath := filepath.Join(modsDir, filename)
+	if _, err := os.Stat(disabledPath); err == nil {
+		if err := os.Rename(disabledPath, enabledPath); err != nil {
+			return fmt.Errorf("failed to enable mod %s: %w", filename, err)
+		}
+	}
+	return nil
+}
+
+// ManualDisableMod disables a mod by adding it to DisabledMods and removing from EnabledMods in the current step
+func (bs *BisectState) ManualDisableMod(modSlug string) error {
+	if bs.CurrentStep < 0 || bs.CurrentStep >= len(bs.History) {
+		return fmt.Errorf("invalid bisection step")
+	}
+	step := &bs.History[bs.CurrentStep]
+	// Add to DisabledMods if not present
+	found := false
+	for _, m := range step.DisabledMods {
+		if m == modSlug {
+			found = true
+			break
+		}
+	}
+	if !found {
+		step.DisabledMods = append(step.DisabledMods, modSlug)
+	}
+	// Remove from EnabledMods
+	newEnabled := []string{}
+	for _, m := range step.EnabledMods {
+		if m != modSlug {
+			newEnabled = append(newEnabled, m)
+		}
+	}
+	step.EnabledMods = newEnabled
+	// Actually disable the mod file
+	modsDir := filepath.Join(bs.LinkedInstance, "mods")
+	filename, exists := bs.ModFiles[modSlug]
+	if !exists {
+		return fmt.Errorf("mod file not found for slug: %s", modSlug)
+	}
+	enabledPath := filepath.Join(modsDir, filename)
+	disabledPath := filepath.Join(modsDir, filename+".disabled")
+	if _, err := os.Stat(enabledPath); err == nil {
+		if err := os.Rename(enabledPath, disabledPath); err != nil {
+			return fmt.Errorf("failed to disable mod %s: %w", filename, err)
+		}
+	}
+	return nil
+}
 
 // BisectStep represents one step in the bisection process
 type BisectStep struct {
