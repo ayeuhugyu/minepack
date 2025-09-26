@@ -518,6 +518,14 @@ var linkUpdateCmd = &cobra.Command{
 			}
 		}
 
+		// Check for overrides changes
+		added, modified, removed, err := linkState.GetOverridesDiff(cwd)
+		overridesChanges := len(added) + len(modified) + len(removed)
+		if err != nil {
+			fmt.Printf(util.FormatWarning("warning: failed to calculate overrides diff: %s\n"), err)
+			overridesChanges = -1 // Unknown changes, assume changes exist
+		}
+
 		// Calculate download size and total disk usage
 		var downloadSize int64
 		for _, content := range allMissingFiles {
@@ -526,6 +534,11 @@ var linkUpdateCmd = &cobra.Command{
 
 		totalDiskUsage := downloadSize * int64(len(linked.Links)+1) // +1 for cache
 
+		// Check if any work needs to be done
+		hasRemovedFiles := len(linkState.RemovedFiles) > 0
+		hasOverridesChanges := overridesChanges != 0
+		hasMissingFiles := len(allMissingFiles) > 0
+
 		// Show summary and ask for confirmation
 		var finalString string
 
@@ -533,12 +546,18 @@ var linkUpdateCmd = &cobra.Command{
 		finalString += fmt.Sprintf("- linked instances: %d\n", len(linked.Links))
 		finalString += fmt.Sprintf("- total mods in modpack: %d\n", len(allContent))
 		finalString += fmt.Sprintf("- unique missing files: %d\n", len(allMissingFiles))
+		if hasRemovedFiles {
+			finalString += fmt.Sprintf("- files to remove: %d\n", len(linkState.RemovedFiles))
+		}
+		if overridesChanges > 0 {
+			finalString += fmt.Sprintf("- overrides changes: %d added, %d modified, %d removed\n", len(added), len(modified), len(removed))
+		}
 		finalString += fmt.Sprintf("- download size: %s\n", formatFileSize(downloadSize))
 		finalString += fmt.Sprintf("- total disk usage after sync: %s", formatFileSize(totalDiskUsage))
 		fmt.Print(updateSummaryStyle.Render(finalString))
 		fmt.Println()
 
-		if len(allMissingFiles) == 0 {
+		if !hasMissingFiles && !hasRemovedFiles && !hasOverridesChanges {
 			fmt.Println("all linked instances are up to date!")
 		} else {
 			// Ask for confirmation
@@ -555,90 +574,92 @@ var linkUpdateCmd = &cobra.Command{
 				fmt.Println(util.FormatError("operation cancelled"))
 				return
 			}
+		}
 
-			// Create cache directory
-			cacheDir := filepath.Join(cwd, ".mpcache")
-			if err := os.MkdirAll(cacheDir, 0755); err != nil {
-				fmt.Printf(util.FormatError("error creating cache directory: %s"), err)
-				return
+		// Create cache directory (needed for both downloads and file copying)
+		cacheDir := filepath.Join(cwd, ".mpcache")
+		if err := os.MkdirAll(cacheDir, 0755); err != nil {
+			fmt.Printf(util.FormatError("error creating cache directory: %s"), err)
+			return
+		}
+
+		// Download missing files to cache (if any)
+		if len(allMissingFiles) > 0 {
+			// Set up parallel download with progress bar
+			jobs := make(chan project.ContentData, len(allMissingFiles))
+			results := make(chan downloadMsg, len(allMissingFiles))
+
+			// Start 3 worker goroutines
+			const numWorkers = 3
+			var wg sync.WaitGroup
+			for i := 0; i < numWorkers; i++ {
+				wg.Add(1)
+				go func(workerID int) {
+					defer wg.Done()
+					downloadWorker(workerID, jobs, results, cacheDir)
+				}(i)
 			}
 
-			// Download missing files to cache
-			if len(allMissingFiles) > 0 {
-				// Set up parallel download with progress bar
-				jobs := make(chan project.ContentData, len(allMissingFiles))
-				results := make(chan downloadMsg, len(allMissingFiles))
+			// Send jobs
+			for _, content := range allMissingFiles {
+				jobs <- content
+			}
+			close(jobs)
 
-				// Start 3 worker goroutines
-				const numWorkers = 3
-				var wg sync.WaitGroup
-				for i := 0; i < numWorkers; i++ {
-					wg.Add(1)
-					go func(workerID int) {
-						defer wg.Done()
-						downloadWorker(workerID, jobs, results, cacheDir)
-					}(i)
-				}
+			// Set up progress bar
+			prog := newDownloadProgress(len(allMissingFiles))
+			p := tea.NewProgram(prog)
 
-				// Send jobs
-				for _, content := range allMissingFiles {
-					jobs <- content
-				}
-				close(jobs)
-
-				// Set up progress bar
-				prog := newDownloadProgress(len(allMissingFiles))
-				p := tea.NewProgram(prog)
-
-				// Monitor results and update progress
-				go func() {
-					defer func() {
-						wg.Wait()
-						p.Send(downloadCompleteMsg{})
-					}()
-
-					completed := 0
-					for completed < len(allMissingFiles) {
-						result := <-results
-						p.Send(result)
-						// Only count completed files, not progress updates
-						if result.complete {
-							completed++
-						}
-					}
+			// Monitor results and update progress
+			go func() {
+				defer func() {
+					wg.Wait()
+					p.Send(downloadCompleteMsg{})
 				}()
 
-				// Run the progress bar
-				if _, err := p.Run(); err != nil {
-					fmt.Printf(util.FormatError("progress bar error: %s\n"), err)
-					return
+				completed := 0
+				for completed < len(allMissingFiles) {
+					result := <-results
+					p.Send(result)
+					// Only count completed files, not progress updates
+					if result.complete {
+						completed++
+					}
 				}
-			}
+			}()
 
-			// First, delete any tracked removed files from linked instances
-			if len(linkState.RemovedFiles) > 0 {
-				fmt.Printf("\nremoving %d deleted files from linked instances...\n", len(linkState.RemovedFiles))
-				for _, linkPath := range linked.Links {
-					removedCount := 0
-					for _, removedFile := range linkState.RemovedFiles {
-						filePath := filepath.Join(linkPath, removedFile)
-						if _, err := os.Stat(filePath); err == nil {
-							if err := os.Remove(filePath); err != nil {
-								fmt.Printf(util.FormatWarning("failed to remove %s from %s: %s\n"), removedFile, linkPath, err)
-							} else {
-								removedCount++
-							}
+			// Run the progress bar
+			if _, err := p.Run(); err != nil {
+				fmt.Printf(util.FormatError("progress bar error: %s\n"), err)
+				return
+			}
+		}
+
+		// First, delete any tracked removed files from linked instances
+		if len(linkState.RemovedFiles) > 0 {
+			fmt.Printf("\nremoving %d deleted files from linked instances...\n", len(linkState.RemovedFiles))
+			for _, linkPath := range linked.Links {
+				removedCount := 0
+				for _, removedFile := range linkState.RemovedFiles {
+					filePath := filepath.Join(linkPath, removedFile)
+					if _, err := os.Stat(filePath); err == nil {
+						if err := os.Remove(filePath); err != nil {
+							fmt.Printf(util.FormatWarning("failed to remove %s from %s: %s\n"), removedFile, linkPath, err)
+						} else {
+							removedCount++
 						}
 					}
-					if removedCount > 0 {
-						fmt.Printf(util.FormatSuccess("%s (%d files removed)\n"), linkPath, removedCount)
-					}
 				}
-				// Clear the removed files list
-				linkState.ClearRemovedFiles()
+				if removedCount > 0 {
+					fmt.Printf(util.FormatSuccess("%s (%d files removed)\n"), linkPath, removedCount)
+				}
 			}
+			// Clear the removed files list
+			linkState.ClearRemovedFiles()
+		}
 
-			// Copy files from cache to each linked instance
+		// Copy files from cache to each linked instance (if there are missing files)
+		if len(allMissingFiles) > 0 {
 			fmt.Println("\nsyncing files to linked instances...")
 
 			for _, linkPath := range linked.Links {
