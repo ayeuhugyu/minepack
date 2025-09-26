@@ -465,6 +465,17 @@ var linkUpdateCmd = &cobra.Command{
 			return
 		}
 
+		// Load link state for tracking removed files and overrides changes
+		linkState, err := LoadLinkState(cwd)
+		if err != nil {
+			fmt.Printf(util.FormatWarning("warning: failed to load link state: %s\n"), err)
+			linkState = &LinkState{
+				RemovedFiles:   []string{},
+				OverridesFiles: make(map[string]string),
+				Version:        "1.0",
+			}
+		}
+
 		// Get all content
 		allContent, err := packData.GetAllContent()
 		if err != nil {
@@ -604,6 +615,29 @@ var linkUpdateCmd = &cobra.Command{
 				}
 			}
 
+			// First, delete any tracked removed files from linked instances
+			if len(linkState.RemovedFiles) > 0 {
+				fmt.Printf("\nremoving %d deleted files from linked instances...\n", len(linkState.RemovedFiles))
+				for _, linkPath := range linked.Links {
+					removedCount := 0
+					for _, removedFile := range linkState.RemovedFiles {
+						filePath := filepath.Join(linkPath, removedFile)
+						if _, err := os.Stat(filePath); err == nil {
+							if err := os.Remove(filePath); err != nil {
+								fmt.Printf(util.FormatWarning("failed to remove %s from %s: %s\n"), removedFile, linkPath, err)
+							} else {
+								removedCount++
+							}
+						}
+					}
+					if removedCount > 0 {
+						fmt.Printf(util.FormatSuccess("%s (%d files removed)\n"), linkPath, removedCount)
+					}
+				}
+				// Clear the removed files list
+				linkState.ClearRemovedFiles()
+			}
+
 			// Copy files from cache to each linked instance
 			fmt.Println("\nsyncing files to linked instances...")
 
@@ -638,20 +672,80 @@ var linkUpdateCmd = &cobra.Command{
 			}
 		}
 
-		// Sync overrides folder
+		// Sync overrides folder with optimization
 		overridesPath := filepath.Join(cwd, "overrides")
 		if _, err := os.Stat(overridesPath); err == nil {
-			fmt.Println("\nsyncing overrides...")
-
-			for _, linkPath := range linked.Links {
-				if err := copyDir(overridesPath, linkPath); err != nil {
-					fmt.Printf(util.FormatError("failed to sync overrides to %s: %s\n"), linkPath, err)
-				} else {
-					fmt.Printf(util.FormatSuccess("%s (overrides synced)\n"), linkPath)
+			// Get overrides diff to optimize sync
+			added, modified, removed, err := linkState.GetOverridesDiff(cwd)
+			if err != nil {
+				fmt.Printf(util.FormatWarning("warning: failed to calculate overrides diff: %s\n"), err)
+				// Fall back to full sync
+				fmt.Println("\nsyncing overrides (full sync)...")
+				for _, linkPath := range linked.Links {
+					if err := copyDir(overridesPath, linkPath); err != nil {
+						fmt.Printf(util.FormatError("failed to sync overrides to %s: %s\n"), linkPath, err)
+					} else {
+						fmt.Printf(util.FormatSuccess("%s (overrides synced)\n"), linkPath)
+					}
 				}
+			} else {
+				// Optimized sync based on diff
+				totalChanges := len(added) + len(modified) + len(removed)
+				if totalChanges == 0 {
+					fmt.Println("\noverrides already up to date")
+				} else {
+					fmt.Printf("\nsyncing overrides (%d added, %d modified, %d removed)...\n", len(added), len(modified), len(removed))
+
+					for _, linkPath := range linked.Links {
+						changeCount := 0
+
+						// Remove deleted files
+						for _, removedFile := range removed {
+							targetPath := filepath.Join(linkPath, removedFile)
+							if _, err := os.Stat(targetPath); err == nil {
+								if err := os.Remove(targetPath); err != nil {
+									fmt.Printf(util.FormatWarning("failed to remove %s from %s: %s\n"), removedFile, linkPath, err)
+								} else {
+									changeCount++
+								}
+							}
+						}
+
+						// Copy added and modified files
+						for _, file := range append(added, modified...) {
+							srcPath := filepath.Join(overridesPath, file)
+							destPath := filepath.Join(linkPath, file)
+
+							// Ensure subdirectory exists
+							destDir := filepath.Dir(destPath)
+							if err := os.MkdirAll(destDir, 0755); err != nil {
+								fmt.Printf(util.FormatWarning("failed to create directory %s: %s\n"), destDir, err)
+								continue
+							}
+
+							if err := copyFile(srcPath, destPath); err != nil {
+								fmt.Printf(util.FormatWarning("failed to copy %s to %s: %s\n"), file, linkPath, err)
+							} else {
+								changeCount++
+							}
+						}
+
+						fmt.Printf(util.FormatSuccess("%s (%d changes applied)\n"), linkPath, changeCount)
+					}
+				}
+			}
+
+			// Update overrides state for next time
+			if err := linkState.ScanOverridesFolder(cwd); err != nil {
+				fmt.Printf(util.FormatWarning("warning: failed to update overrides state: %s\n"), err)
 			}
 		} else {
 			fmt.Println("\nno overrides folder found, skipping override sync")
+		}
+
+		// Save updated link state
+		if err := SaveLinkState(cwd, linkState); err != nil {
+			fmt.Printf(util.FormatWarning("warning: failed to save link state: %s\n"), err)
 		}
 
 		fmt.Println()

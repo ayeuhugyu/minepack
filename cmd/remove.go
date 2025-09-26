@@ -354,9 +354,23 @@ var removeCmd = &cobra.Command{
 			return
 		}
 
+		// Load link state to track removed files
+		linkState, err := LoadLinkState(cwd)
+		if err != nil {
+			fmt.Printf(util.FormatWarning("warning: failed to load link state: %s\n"), err)
+			linkState = &LinkState{
+				RemovedFiles:   []string{},
+				OverridesFiles: make(map[string]string),
+				Version:        "1.0",
+			}
+		}
+
 		// perform the removal
 		successCount := 0
 		for _, modToRemove := range modsToRemove {
+			// Track the file path for removal from linked instances
+			linkState.AddRemovedFile(modToRemove.File.Filepath)
+
 			// first, update the RequiredBy fields of this mod's dependencies
 			err = updateDependencyRequiredByOnRemoval(&modToRemove, packData)
 			if err != nil {
@@ -371,6 +385,11 @@ var removeCmd = &cobra.Command{
 				fmt.Printf(util.FormatSuccess("removed %s\n"), modToRemove.Name)
 				successCount++
 			}
+		}
+
+		// Save link state with tracked removed files
+		if err := SaveLinkState(cwd, linkState); err != nil {
+			fmt.Printf(util.FormatWarning("warning: failed to save link state: %s\n"), err)
 		}
 
 		fmt.Printf(util.FormatSuccess("successfully removed %d of %d mods\n"), successCount, len(modsToRemove))
