@@ -79,27 +79,27 @@ func DeleteBisectState(projectRoot string) error {
 	return nil
 }
 
-// buildDependencyMap creates a map of mod -> list of mods that depend on it
+// buildDependencyMap creates a map of mod -> list of mods that depend on it (dependents)
 func buildDependencyMap(allContent []project.ContentData) map[string][]string {
-	dependencies := make(map[string][]string)
+	dependents := make(map[string][]string)
 
 	for _, content := range allContent {
 		for _, dep := range content.Dependencies {
-			// Add this mod as dependent on the dependency
+			// Add this mod as a dependent of the dependency
 			depSlug := dep.Slug
-			if dependencies[depSlug] == nil {
-				dependencies[depSlug] = []string{}
+			if dependents[depSlug] == nil {
+				dependents[depSlug] = []string{}
 			}
-			dependencies[depSlug] = append(dependencies[depSlug], content.Slug)
+			dependents[depSlug] = append(dependents[depSlug], content.Slug)
 		}
 	}
 
-	return dependencies
+	return dependents
 }
 
 // getModsToDisable returns the list of mods that should be disabled when disabling a specific mod
 // This includes the mod itself and all mods that depend on it (recursively)
-func getModsToDisable(modSlug string, dependencies map[string][]string, visited map[string]bool) []string {
+func getModsToDisable(modSlug string, dependents map[string][]string, visited map[string]bool) []string {
 	if visited[modSlug] {
 		return []string{}
 	}
@@ -108,8 +108,8 @@ func getModsToDisable(modSlug string, dependencies map[string][]string, visited 
 	result := []string{modSlug}
 
 	// Add all mods that depend on this mod
-	for _, dependent := range dependencies[modSlug] {
-		result = append(result, getModsToDisable(dependent, dependencies, visited)...)
+	for _, dependent := range dependents[modSlug] {
+		result = append(result, getModsToDisable(dependent, dependents, visited)...)
 	}
 
 	return result
@@ -237,7 +237,7 @@ func (bs *BisectState) selectModsForDisabling(candidates []string) []string {
 		}
 
 		// If adding this would put us way over target, check if we should stop
-		if totalImpact+impact.count > targetDisabled*2 && totalImpact > 0 {
+		if totalImpact+impact.count > targetDisabled*3/2 && totalImpact > 0 {
 			break
 		}
 
@@ -289,15 +289,15 @@ func (bs *BisectState) GetCurrentCandidates() []string {
 	// Process history to narrow down candidates
 	for _, step := range bs.History {
 		if step.TestResult == "good" {
-			// If test was good with these mods disabled, the problem is NOT in the disabled mods
-			// So remove disabled mods from candidates
-			for _, mod := range step.DisabledMods {
+			// If test was good with these mods disabled, the problem IS in the disabled mods
+			// So remove enabled mods from candidates - we search within disabled mods
+			for _, mod := range step.EnabledMods {
 				delete(candidates, mod)
 			}
 		} else if step.TestResult == "bad" {
-			// If test was bad with these mods disabled, the problem IS in the disabled mods
-			// So remove enabled mods from candidates
-			for _, mod := range step.EnabledMods {
+			// If test was bad with these mods disabled, the problem is NOT in the disabled mods
+			// So remove disabled mods from candidates - we search within enabled mods
+			for _, mod := range step.DisabledMods {
 				delete(candidates, mod)
 			}
 		}
