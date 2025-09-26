@@ -20,6 +20,7 @@ type BisectState struct {
 	ModFiles       map[string]string   `yaml:"mod_files"`    // slug -> filename
 	Created        string              `yaml:"created"`
 }
+
 // ManualEnableMod enables a mod by removing it from DisabledMods and adding to EnabledMods in the current step
 func (bs *BisectState) ManualEnableMod(modSlug string) error {
 	if bs.CurrentStep < 0 || bs.CurrentStep >= len(bs.History) {

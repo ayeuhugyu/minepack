@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"minepack/core/bisect"
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
