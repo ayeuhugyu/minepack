@@ -25,9 +25,9 @@ func SearchProjects(query string, projectData project.Project, verbose bool) ([]
 	}
 	params.Set("pageSize", "50") // Increase page size to get more results
 	params.Set("index", "0")
-	
+
 	// Add sort by Popularity to get more relevant results first
-	params.Set("sortField", "6") // 6 = Popularity  
+	params.Set("sortField", "6") // 6 = Popularity
 	params.Set("sortOrder", "desc")
 
 	// add class filter (project types) - only add mods for now to test
@@ -81,6 +81,14 @@ func SearchProjects(query string, projectData project.Project, verbose bool) ([]
 		results = prioritizeExactMatches(results, query, verbose)
 	}
 
+	// Trim results to top 10 if more than 10
+	if len(results) > 10 {
+		if verbose {
+			fmt.Printf("trimming results to top 10\n")
+		}
+		results = results[:10]
+	}
+
 	return results, nil
 }
 
@@ -89,17 +97,17 @@ func prioritizeExactMatches(results []Mod, query string, verbose bool) []Mod {
 	if len(results) <= 1 {
 		return results
 	}
-	
+
 	var exactMatches []Mod
-	var closeMatches []Mod  
+	var closeMatches []Mod
 	var otherResults []Mod
-	
+
 	queryLower := strings.ToLower(query)
-	
+
 	for _, mod := range results {
 		modNameLower := strings.ToLower(mod.Name)
 		modSlugLower := strings.ToLower(mod.Slug)
-		
+
 		// Check for exact name or slug match
 		if modNameLower == queryLower || modSlugLower == queryLower {
 			exactMatches = append(exactMatches, mod)
@@ -116,18 +124,18 @@ func prioritizeExactMatches(results []Mod, query string, verbose bool) []Mod {
 			otherResults = append(otherResults, mod)
 		}
 	}
-	
+
 	// Combine results with exact matches first
 	var reorderedResults []Mod
 	reorderedResults = append(reorderedResults, exactMatches...)
 	reorderedResults = append(reorderedResults, closeMatches...)
 	reorderedResults = append(reorderedResults, otherResults...)
-	
+
 	if verbose && len(exactMatches) > 0 {
-		fmt.Printf("reordered results: %d exact matches, %d close matches, %d other results\n", 
+		fmt.Printf("reordered results: %d exact matches, %d close matches, %d other results\n",
 			len(exactMatches), len(closeMatches), len(otherResults))
 	}
-	
+
 	return reorderedResults
 }
 
