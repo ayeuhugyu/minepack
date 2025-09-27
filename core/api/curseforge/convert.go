@@ -112,11 +112,16 @@ func ConvertModToContentData(mod *Mod, file *File) project.ContentData {
 				depType = project.Optional
 			}
 
+			modData, err := GetProject(fmt.Sprintf("%d", dep.ModID))
+			if err != nil {
+				fmt.Printf("error fetching dependency data for mod ID %d: %v\n", dep.ModID, err)
+			}
+
 			contentData.Dependencies = append(contentData.Dependencies, project.Dependency{
 				Id:             fmt.Sprintf("%d", dep.ModID),
 				DependencyType: depType,
-				Name:           "", // curseforge doesn't provide name in dependency, would need separate API call
-				Slug:           "", // curseforge doesn't provide slug in dependency, would need separate API call
+				Name:           modData.Name,
+				Slug:           modData.Slug,
 			})
 		}
 	}
