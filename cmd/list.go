@@ -12,6 +12,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var modrinthStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#48cf7aff"))
@@ -26,8 +27,29 @@ var listStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("#874BFD")).
 	Margin(0, 1)
 
-// formatListItem formats a mod for list display with proper alignment
-func formatListItem(data project.ContentData, sourceWidth, nameWidth, slugWidth int) string {
+// truncateString truncates a string to a maximum length with ellipsis
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return strings.Repeat(".", maxLen)
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// getTerminalWidth returns the terminal width or a default value
+func getTerminalWidth() int {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		// Default to 80 columns if we can't detect terminal size
+		return 80
+	}
+	return width
+}
+
+// formatListItem formats a mod for list display with proper alignment and terminal width awareness
+func formatListItem(data project.ContentData, sourceWidth, nameWidth, slugWidth, urlWidth int) string {
 	// Get source string with appropriate styling
 	sourceStr := project.SourceToString(data.Source)
 	var styledSource string
@@ -45,35 +67,49 @@ func formatListItem(data project.ContentData, sourceWidth, nameWidth, slugWidth 
 	// Pad source to align columns
 	styledSourcePadded := "[" + styledSource + "]" + strings.Repeat(" ", sourceWidth-len(sourceStr)-2)
 
-	// Format name and slug with styling
-	styledName := boldStyle.Render(data.Name)
-	styledSlug := grayStyle.Render("(" + data.Slug + ")")
-
-	// Calculate padding for styled versions
-	nameStylePadding := nameWidth - len(data.Name)
-	slugStylePadding := slugWidth - len(data.Slug) - 2 // -2 for parentheses
-
+	// Truncate and format name with styling
+	truncatedName := truncateString(data.Name, nameWidth-2) // -2 for padding
+	styledName := boldStyle.Render(truncatedName)
+	nameStylePadding := nameWidth - len(truncatedName)
 	styledNamePadded := styledName + strings.Repeat(" ", nameStylePadding)
+
+	// Truncate and format slug with styling
+	maxSlugLen := slugWidth - 4 // -2 for parentheses, -2 for padding
+	truncatedSlug := truncateString(data.Slug, maxSlugLen)
+	styledSlug := grayStyle.Render("(" + truncatedSlug + ")")
+	slugStylePadding := slugWidth - len(truncatedSlug) - 2 // -2 for parentheses
 	styledSlugPadded := styledSlug + strings.Repeat(" ", slugStylePadding)
 
-	// Format URL with styling
+	// Format URL with styling and truncation
+	var urlToShow string
+	switch data.Source {
+	case project.Custom:
+		urlToShow = "(no page)"
+	default:
+		urlToShow = truncateString(data.PageUrl, urlWidth)
+	}
+
 	var styledUrl string
 	switch data.Source {
 	case project.Modrinth:
-		styledUrl = modrinthStyle.Render(data.PageUrl)
+		styledUrl = modrinthStyle.Render(urlToShow)
 	case project.Curseforge:
-		styledUrl = curseforgeStyle.Render(data.PageUrl)
+		styledUrl = curseforgeStyle.Render(urlToShow)
 	case project.Custom:
-		styledUrl = customStyle.Render("(no page)")
+		styledUrl = customStyle.Render(urlToShow)
 	default:
-		styledUrl = customStyle.Render(data.PageUrl)
+		styledUrl = customStyle.Render(urlToShow)
 	}
 
 	return fmt.Sprintf("%s %s %s %s", styledSourcePadded, styledNamePadded, styledSlugPadded, styledUrl)
 }
 
-// calculateColumnWidths determines the optimal column widths for alignment
-func calculateColumnWidths(mods []project.ContentData) (sourceWidth, nameWidth, slugWidth int) {
+// calculateColumnWidths determines the optimal column widths for alignment with terminal width constraints
+func calculateColumnWidths(mods []project.ContentData) (sourceWidth, nameWidth, slugWidth, urlWidth int) {
+	terminalWidth := getTerminalWidth()
+	// Reserve some space for borders and padding from lipgloss styling
+	availableWidth := terminalWidth - 8 // -8 for border, padding, and spacing
+
 	sourceWidth = 0
 	nameWidth = 0
 	slugWidth = 0
@@ -100,7 +136,37 @@ func calculateColumnWidths(mods []project.ContentData) (sourceWidth, nameWidth, 
 	nameWidth += 2
 	slugWidth += 2
 
-	return sourceWidth, nameWidth, slugWidth
+	// Calculate remaining space for URL after fixed columns and spaces between them
+	fixedWidth := sourceWidth + nameWidth + slugWidth + 3 // +3 for spaces between columns
+	urlWidth = availableWidth - fixedWidth
+
+	// Set reasonable limits to prevent extremely wide columns
+	maxNameWidth := availableWidth / 3
+	maxSlugWidth := availableWidth / 4
+	minUrlWidth := 20
+
+	if nameWidth > maxNameWidth {
+		nameWidth = maxNameWidth
+	}
+	if slugWidth > maxSlugWidth {
+		slugWidth = maxSlugWidth
+	}
+
+	// Recalculate URL width after applying limits
+	fixedWidth = sourceWidth + nameWidth + slugWidth + 3
+	urlWidth = availableWidth - fixedWidth
+	if urlWidth < minUrlWidth {
+		// If URL width is too small, reduce other columns further
+		nameWidth = maxNameWidth / 2
+		slugWidth = maxSlugWidth / 2
+		fixedWidth = sourceWidth + nameWidth + slugWidth + 3
+		urlWidth = availableWidth - fixedWidth
+		if urlWidth < minUrlWidth {
+			urlWidth = minUrlWidth
+		}
+	}
+
+	return sourceWidth, nameWidth, slugWidth, urlWidth
 }
 
 // listCmd represents the list command
@@ -136,12 +202,12 @@ var listCmd = &cobra.Command{
 		}
 
 		// calculate column widths for alignment
-		sourceWidth, nameWidth, slugWidth := calculateColumnWidths(allContent)
+		sourceWidth, nameWidth, slugWidth, urlWidth := calculateColumnWidths(allContent)
 
 		// add each line
 		var fullString string
 		for i, mod := range allContent {
-			formatted := formatListItem(mod, sourceWidth, nameWidth, slugWidth)
+			formatted := formatListItem(mod, sourceWidth, nameWidth, slugWidth, urlWidth)
 			fullString += formatted
 			if i != len(allContent)-1 {
 				fullString += "\n"

@@ -13,6 +13,7 @@ require (
 	github.com/sahilm/fuzzy v0.1.1
 	github.com/spf13/cobra v1.10.1
 	github.com/unascribed/FlexVer/go/flexver v1.0.0
+	golang.org/x/term v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
