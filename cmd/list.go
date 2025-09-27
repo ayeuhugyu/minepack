@@ -137,8 +137,9 @@ func calculateColumnWidths(mods []project.ContentData) (sourceWidth, nameWidth, 
 	slugWidth += 2
 
 	// Calculate remaining space for URL after fixed columns and spaces between them
-	fixedWidth := sourceWidth + nameWidth + slugWidth + 3 // +3 for spaces between columns
-	urlWidth = availableWidth - fixedWidth
+	var fixedWidth int
+	// fixedWidth := sourceWidth + nameWidth + slugWidth + 3 // +3 for spaces between columns
+	// urlWidth = availableWidth - fixedWidth
 
 	// Set reasonable limits to prevent extremely wide columns
 	maxNameWidth := availableWidth / 3
