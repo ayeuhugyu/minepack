@@ -11,9 +11,9 @@ import (
 )
 
 var versionFormatCmd = &cobra.Command{
-	Use:   "format [semver|increment|custom]",
+	Use:   "format [semver|breakver|increment|custom]",
 	Short: "Set the version format",
-	Long:  `Set the version format for the project (semver, increment, or custom)`,
+	Long:  `Set the version format for the project (semver, breakver, increment, or custom)`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectRoot, err := os.Getwd()
@@ -28,12 +28,14 @@ var versionFormatCmd = &cobra.Command{
 		switch format {
 		case "semver":
 			versionFormat = project.VersionFormatSemVer
+		case "breakver":
+			versionFormat = project.VersionFormatBreakVer
 		case "increment":
 			versionFormat = project.VersionFormatIncrement
 		case "custom":
 			versionFormat = project.VersionFormatCustom
 		default:
-			fmt.Printf(util.FormatError("invalid format '%s'. Must be one of: semver, increment, custom\n"), format)
+			fmt.Printf(util.FormatError("invalid format '%s'. Must be one of: semver, breakver, increment, custom\n"), format)
 			return
 		}
 

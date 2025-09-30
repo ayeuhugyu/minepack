@@ -20,6 +20,7 @@ type VersionFormat string
 
 const (
 	VersionFormatSemVer    VersionFormat = "semver"
+	VersionFormatBreakVer  VersionFormat = "breakver"
 	VersionFormatIncrement VersionFormat = "increment"
 	VersionFormatCustom    VersionFormat = "custom"
 )
@@ -259,6 +260,86 @@ func UpdateSemVerPatch(version string, operation string, value int) (string, err
 	return FormatSemVer(major, minor, patch), nil
 }
 
+// ParseBreakVer parses a breaking version string (MAJOR.MINOR)
+func ParseBreakVer(version string) (major, minor int, err error) {
+	version = strings.TrimPrefix(version, "v")
+	parts := strings.Split(version, ".")
+	
+	if len(parts) != 2 {
+		return 0, 0, errors.New("invalid breakver format, expected Major.Minor")
+	}
+
+	major, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid major version: %w", err)
+	}
+
+	minor, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid minor version: %w", err)
+	}
+
+	return major, minor, nil
+}
+
+// FormatBreakVer formats major, minor as a breaking version string
+func FormatBreakVer(major, minor int) string {
+	return fmt.Sprintf("%d.%d", major, minor)
+}
+
+// UpdateBreakVerMajor updates the major version (breakver format)
+func UpdateBreakVerMajor(version string, operation string, value int) (string, error) {
+	major, minor, err := ParseBreakVer(version)
+	if err != nil {
+		return "", err
+	}
+
+	switch operation {
+	case "add":
+		major += value
+	case "subtract":
+		major -= value
+		if major < 0 {
+			major = 0
+		}
+	case "set":
+		major = value
+	default:
+		return "", fmt.Errorf("unknown operation: %s", operation)
+	}
+
+	// Reset minor when incrementing major
+	if operation == "add" && value > 0 {
+		minor = 0
+	}
+
+	return FormatBreakVer(major, minor), nil
+}
+
+// UpdateBreakVerMinor updates the minor version (breakver format)
+func UpdateBreakVerMinor(version string, operation string, value int) (string, error) {
+	major, minor, err := ParseBreakVer(version)
+	if err != nil {
+		return "", err
+	}
+
+	switch operation {
+	case "add":
+		minor += value
+	case "subtract":
+		minor -= value
+		if minor < 0 {
+			minor = 0
+		}
+	case "set":
+		minor = value
+	default:
+		return "", fmt.Errorf("unknown operation: %s", operation)
+	}
+
+	return FormatBreakVer(major, minor), nil
+}
+
 // UpdateIncrementVersion updates an increment-based version
 func UpdateIncrementVersion(version string, operation string, value int) (string, error) {
 	current, err := strconv.Atoi(version)
@@ -385,6 +466,8 @@ func SetVersionFormat(projPath string, format VersionFormat) error {
 		switch format {
 		case VersionFormatSemVer:
 			history.Current = "0.1.0"
+		case VersionFormatBreakVer:
+			history.Current = "0.1"
 		case VersionFormatIncrement:
 			history.Current = "1"
 		case VersionFormatCustom:
