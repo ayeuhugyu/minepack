@@ -10,6 +10,7 @@ import (
 	"io"
 	"minepack/core/api/curseforge"
 	"minepack/core/api/modrinth"
+	"minepack/core/export"
 	"minepack/core/project"
 	"minepack/util"
 	"os"
@@ -317,7 +318,39 @@ func createZipFile(sourceDir, outputName string) error {
 	})
 }
 
+// exportUnsupCmd represents the export unsup command
+var exportUnsupCmd = &cobra.Command{
+	Use:   "unsup",
+	Short: "export as unsup manifest format",
+	Long:  `exports your modpack as unsup manifest format in an 'unsup' folder`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// Get current working directory and parse project
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Printf(util.FormatError("error getting current working directory: %s"), err)
+			return
+		}
+
+		// Create unsup output directory
+		unsupDir := filepath.Join(cwd, "unsup")
+		if err := os.MkdirAll(unsupDir, 0755); err != nil {
+			fmt.Printf(util.FormatError("failed to create unsup directory: %s"), err)
+			return
+		}
+
+		// Export unsup format
+		if err := export.ExportUnsup(cwd, unsupDir); err != nil {
+			fmt.Printf(util.FormatError("failed to export unsup format: %s"), err)
+			return
+		}
+
+		successMsg := fmt.Sprintf("successfully exported unsup manifest to %s/", "unsup")
+		fmt.Println(util.FormatSuccess(successMsg))
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(exportCmd)
 	exportCmd.AddCommand(exportModrinthCmd)
+	exportCmd.AddCommand(exportUnsupCmd)
 }
