@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"minepack/core/project"
-	"minepack/util"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -267,19 +266,6 @@ created = %s
 	fmt.Printf("Unsup manifest exported to: %s\n", outputPath)
 	fmt.Printf("- unsup-manifest.json: %d files\n", len(manifest.Files))
 	fmt.Printf("- unsup.ini: configuration file\n")
-
-	// create a warning if a mod containing "unsup" in its name is not found, but otherwise do nothing
-	foundUnsup := false
-	for _, file := range manifest.Files {
-		if strings.Contains(file.Meta["mod_name"], "unsup") {
-			foundUnsup = true
-			break
-		}
-	}
-
-	if !foundUnsup {
-		fmt.Println(util.FormatWarning("the 'unsup' mod was not found in the manifest, meaning it probably won't do anything. consider adding it."))
-	}
 
 	return nil
 }
