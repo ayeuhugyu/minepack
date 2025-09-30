@@ -9,6 +9,7 @@ a fast CLI tool for managing minecraft modpacks with instance linking.
 **instance linking** - sync your modpack to a minecraft instance to quickly test stuff\
 **bisect search** - easily find which mods are causing issues with a built in bisection search tool- also considers dependencies so nothing should break.\
 **dependency resolution** - automatically handles mod dependencies (unless the mod creator fails to add any)\
+**version management** - track modpack versions with semantic versioning, increment-based, or custom formats with automatic git integration\
 
 ## Installation
 
@@ -128,6 +129,7 @@ this is only here for documentation purposes.
 ```bash
 my-modpack/
 ├── project.mp.yaml          # main project configuration
+├── versions.mp.yaml         # version history and tracking
 ├── content.mp.sum.yaml      # summary of all mods
 ├── incompat.mp.sum.yaml     # summary of all incompatible mods
 ├── linked.mp.yaml           # linked instances configuration
@@ -175,6 +177,15 @@ my-modpack/
 ### Self updating
 
 - `minepack selfupdate` - update minepack to latest version
+
+### Version Management
+
+- `minepack version format <semver|increment|custom>` - set the version format
+- `minepack version set <version>` - set a specific version
+- `minepack version show` - show current version and history
+- `minepack version major|minor|patch <add|subtract|set> <value>` - update semver versions
+- `minepack version add|subtract <value>` - update increment versions
+- `minepack version revert|goto <version>` - revert to a previous version
 
 ## Filtering options
 
