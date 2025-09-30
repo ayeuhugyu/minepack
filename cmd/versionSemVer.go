@@ -13,8 +13,8 @@ import (
 
 var versionMajorCmd = &cobra.Command{
 	Use:   "major [add|subtract|set] [value]",
-	Short: "Update the major version (semver only)",
-	Long:  `Update the major version number for semver format projects`,
+	Short: "Update the major version",
+	Long:  `Update the major version number for semver and breakver format projects`,
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectRoot, err := os.Getwd()
@@ -29,8 +29,8 @@ var versionMajorCmd = &cobra.Command{
 			return
 		}
 
-		if history.Format != project.VersionFormatSemVer {
-			fmt.Printf(util.FormatError("major version command is only available for semver format\n"))
+		if history.Format != project.VersionFormatSemVer && history.Format != project.VersionFormatBreakVer {
+			fmt.Printf(util.FormatError("major version command is only available for semver and breakver formats\n"))
 			return
 		}
 
@@ -41,7 +41,12 @@ var versionMajorCmd = &cobra.Command{
 			return
 		}
 
-		newVersion, err := project.UpdateSemVerMajor(history.Current, operation, value)
+		var newVersion string
+		if history.Format == project.VersionFormatSemVer {
+			newVersion, err = project.UpdateSemVerMajor(history.Current, operation, value)
+		} else {
+			newVersion, err = project.UpdateBreakVerMajor(history.Current, operation, value)
+		}
 		if err != nil {
 			fmt.Printf(util.FormatError("failed to update major version: %v\n"), err)
 			return
@@ -64,8 +69,8 @@ var versionMajorCmd = &cobra.Command{
 
 var versionMinorCmd = &cobra.Command{
 	Use:   "minor [add|subtract|set] [value]",
-	Short: "Update the minor version (semver only)",
-	Long:  `Update the minor version number for semver format projects`,
+	Short: "Update the minor version",
+	Long:  `Update the minor version number for semver and breakver format projects`,
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectRoot, err := os.Getwd()
@@ -80,8 +85,8 @@ var versionMinorCmd = &cobra.Command{
 			return
 		}
 
-		if history.Format != project.VersionFormatSemVer {
-			fmt.Printf(util.FormatError("minor version command is only available for semver format\n"))
+		if history.Format != project.VersionFormatSemVer && history.Format != project.VersionFormatBreakVer {
+			fmt.Printf(util.FormatError("minor version command is only available for semver and breakver formats\n"))
 			return
 		}
 
@@ -92,7 +97,12 @@ var versionMinorCmd = &cobra.Command{
 			return
 		}
 
-		newVersion, err := project.UpdateSemVerMinor(history.Current, operation, value)
+		var newVersion string
+		if history.Format == project.VersionFormatSemVer {
+			newVersion, err = project.UpdateSemVerMinor(history.Current, operation, value)
+		} else {
+			newVersion, err = project.UpdateBreakVerMinor(history.Current, operation, value)
+		}
 		if err != nil {
 			fmt.Printf(util.FormatError("failed to update minor version: %v\n"), err)
 			return
@@ -128,6 +138,11 @@ var versionPatchCmd = &cobra.Command{
 		history, err := project.ParseVersionHistory(projectRoot)
 		if err != nil {
 			fmt.Printf(util.FormatError("failed to read version history: %v\n"), err)
+			return
+		}
+
+		if history.Format == project.VersionFormatBreakVer {
+			fmt.Printf(util.FormatError("patch version command is not available for breakver format (breakver only uses major.minor)\n"))
 			return
 		}
 

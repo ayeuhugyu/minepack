@@ -183,8 +183,8 @@ my-modpack/
 - `minepack version format <semver|breakver|increment|custom>` - set the version format
 - `minepack version set <version>` - set a specific version
 - `minepack version show` - show current version and history
-- `minepack version major|minor|patch <add|subtract|set> <value>` - update semver versions
-- `minepack version breakmajor|breakminor <add|subtract|set> <value>` - update breakver versions
+- `minepack version major|minor <add|subtract|set> <value>` - update major/minor versions (semver and breakver)
+- `minepack version patch <add|subtract|set> <value>` - update patch version (semver only)
 - `minepack version add|subtract <value>` - update increment versions
 - `minepack version revert|goto <version>` - revert to a previous version
 
