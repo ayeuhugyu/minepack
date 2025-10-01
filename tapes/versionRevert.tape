@@ -5,32 +5,24 @@ Set Width 1400
 Set Height 900
 Set FontSize 32
 
-Sleep 2s
-
+Hide
 Type "cd testProject" Sleep 500ms Enter
 Sleep 1s
+Show
 
-Type "# Show current version history" Sleep 500ms Enter
-Sleep 500ms
-Type "./minepack version show" Sleep 500ms Enter
-Sleep 3s
-
-Type "# List current mods" Sleep 500ms Enter
-Sleep 500ms
-Type "./minepack list" Sleep 500ms Enter
-Sleep 3s
-
-Type "# Revert to previous version" Sleep 500ms Enter
-Sleep 500ms
-Type "./minepack version revert 1.0.0" Sleep 500ms Enter
 Sleep 2s
 
-Type "# Check version after revert" Sleep 500ms Enter
-Sleep 500ms
-Type "./minepack version show" Sleep 500ms Enter
+Type "./minepack version show --history" Sleep 500ms Enter
 Sleep 3s
 
-Type "# List mods after revert" Sleep 500ms Enter
-Sleep 500ms
 Type "./minepack list" Sleep 500ms Enter
-Sleep 5s
+Sleep 3s
+
+Type "./minepack version jump 1" Sleep 500ms Enter
+Sleep 1s
+
+Type "./minepack version show" Sleep 500ms Enter
+Sleep 2s
+
+Type "./minepack list" Sleep 500ms Enter
+Sleep 8s

@@ -122,9 +122,7 @@ minepack link bisect finish
 
 ### Version management
 
-track your modpack versions with automatic git integration:
-
-<img src="tapes/versionBasic.gif" width="1200" alt="Version Management Demo">
+track your modpack versions:
 
 ```bash
 # set version format (semver, breakver, increment, or custom)
@@ -142,25 +140,6 @@ minepack version major add 1  # 1.1.0 -> 2.0.0
 minepack version show
 ```
 
-#### Version tracking with mod changes
-
-all mod additions and removals are automatically tracked with git commits:
-
-<img src="tapes/versionWithMods.gif" width="1400" alt="Version With Mods Demo">
-
-```bash
-# add mods - automatically creates git commits
-minepack add sodium
-minepack add lithium
-
-# increment version after changes
-minepack version patch add 1
-
-# view your mods and version history
-minepack list
-minepack version show
-```
-
 #### Reverting to previous versions
 
 easily revert your entire modpack to any previous version:
@@ -174,6 +153,8 @@ minepack version revert 1.0.0
 # your mods will be restored to that version's state
 minepack list
 ```
+
+(this is accomplished using a local git repository)
 
 ## Project Structure
 
