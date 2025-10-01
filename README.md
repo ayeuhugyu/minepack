@@ -144,7 +144,7 @@ minepack version show
 
 easily revert your entire modpack to any previous version:
 
-<img src="tapes/versionRevert.gif" width="1400" alt="Version Revert Demo">
+<img src="tapes/versionRevert.gif" width="600" alt="Version Revert Demo">
 
 ```bash
 # revert to a specific version
