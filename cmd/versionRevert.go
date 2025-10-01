@@ -27,11 +27,11 @@ var versionRevertCmd = &cobra.Command{
 
 		err = project.RevertToVersion(projectRoot, targetVersion)
 		if err != nil {
-			fmt.Printf(util.FormatError("failed to revert to version %s: %v\n"), targetVersion, err)
+			fmt.Printf(util.FormatError("failed to jump to version %s: %v\n"), targetVersion, err)
 			return
 		}
 
-		fmt.Printf(util.FormatSuccess("reverted to version %s\n"), targetVersion)
+		fmt.Printf(util.FormatSuccess("jumped to version %s\n"), targetVersion)
 	},
 }
 
