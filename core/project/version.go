@@ -110,6 +110,11 @@ func InitGitRepo(projPath string) (*git.Repository, error) {
 // CreateVersionCommit creates a git commit for a version change
 func CreateVersionCommit(projPath string, message string) (string, error) {
 	repo, err := git.PlainOpen(projPath)
+	// if the error is that the repository does not exist, initialize it
+	if errors.Is(err, git.ErrRepositoryNotExists) {
+		repo, err = InitGitRepo(projPath)
+	}
+	// if there is still an error, return it
 	if err != nil {
 		return "", fmt.Errorf("failed to open git repository: %w", err)
 	}
