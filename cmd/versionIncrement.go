@@ -15,7 +15,7 @@ var versionAddCmd = &cobra.Command{
 	Use:   "add [value]",
 	Short: "Add to the version number (increment format only)",
 	Long:  `Add to the version number for increment format projects`,
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectRoot, err := os.Getwd()
 		if err != nil {
@@ -32,6 +32,11 @@ var versionAddCmd = &cobra.Command{
 		if history.Format != project.VersionFormatIncrement {
 			fmt.Println(util.FormatError("add command is only available for increment format"))
 			return
+		}
+
+		// if args[0] is not provided, default to 1
+		if len(args) == 0 {
+			args = append(args, "1")
 		}
 
 		value, err := strconv.Atoi(args[0])
@@ -65,7 +70,7 @@ var versionSubtractCmd = &cobra.Command{
 	Use:   "subtract [value]",
 	Short: "Subtract from the version number (increment format only)",
 	Long:  `Subtract from the version number for increment format projects`,
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectRoot, err := os.Getwd()
 		if err != nil {
@@ -82,6 +87,11 @@ var versionSubtractCmd = &cobra.Command{
 		if history.Format != project.VersionFormatIncrement {
 			fmt.Println(util.FormatError("subtract command is only available for increment format"))
 			return
+		}
+
+		// if args[0] is not provided, default to 1
+		if len(args) == 0 {
+			args = append(args, "1")
 		}
 
 		value, err := strconv.Atoi(args[0])

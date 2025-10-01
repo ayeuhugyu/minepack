@@ -15,7 +15,7 @@ var versionMajorCmd = &cobra.Command{
 	Use:   "major [add|subtract|set] [value]",
 	Short: "Update the major version",
 	Long:  `Update the major version number for semver and breakver format projects`,
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectRoot, err := os.Getwd()
 		if err != nil {
@@ -35,6 +35,11 @@ var versionMajorCmd = &cobra.Command{
 		}
 
 		operation := args[0]
+		// if args[1] is not provided, default to 1
+		if len(args) == 1 {
+			args = append(args, "1")
+		}
+
 		value, err := strconv.Atoi(args[1])
 		if err != nil {
 			fmt.Printf(util.FormatError("invalid value '%s': must be a number\n"), args[1])
@@ -71,7 +76,7 @@ var versionMinorCmd = &cobra.Command{
 	Use:   "minor [add|subtract|set] [value]",
 	Short: "Update the minor version",
 	Long:  `Update the minor version number for semver and breakver format projects`,
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectRoot, err := os.Getwd()
 		if err != nil {
@@ -91,6 +96,10 @@ var versionMinorCmd = &cobra.Command{
 		}
 
 		operation := args[0]
+		// if args[1] is not provided, default to 1
+		if len(args) == 1 {
+			args = append(args, "1")
+		}
 		value, err := strconv.Atoi(args[1])
 		if err != nil {
 			fmt.Printf(util.FormatError("invalid value '%s': must be a number\n"), args[1])
@@ -127,7 +136,7 @@ var versionPatchCmd = &cobra.Command{
 	Use:   "patch [add|subtract|set] [value]",
 	Short: "Update the patch version (semver only)",
 	Long:  `Update the patch version number for semver format projects`,
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectRoot, err := os.Getwd()
 		if err != nil {
@@ -152,6 +161,10 @@ var versionPatchCmd = &cobra.Command{
 		}
 
 		operation := args[0]
+		// if args[1] is not provided, default to 1
+		if len(args) == 1 {
+			args = append(args, "1")
+		}
 		value, err := strconv.Atoi(args[1])
 		if err != nil {
 			fmt.Printf(util.FormatError("invalid value '%s': must be a number\n"), args[1])
