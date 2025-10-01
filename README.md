@@ -156,31 +156,6 @@ minepack list
 
 (this is accomplished using a local git repository)
 
-## Project Structure
-
-**YOU SHOULD NOT HAVE TO EDIT ANY FILES!!**\
-minepack commands will handle that for you.\
-this is only here for documentation purposes.
-
-```bash
-my-modpack/
-├── project.mp.yaml          # main project configuration
-├── versions.mp.yaml         # version history and tracking
-├── content.mp.sum.yaml      # summary of all mods
-├── incompat.mp.sum.yaml     # summary of all incompatible mods
-├── linked.mp.yaml           # linked instances configuration
-├── content/                 # individual mod configurations
-│   ├── sodium.mp.yaml
-│   ├── create.mp.yaml
-│   └── ...
-├── overrides/               # overrides (ex. custom mods, resource packs, config files, etc.)
-│   ├── config/
-│   ├── mods/
-│   ├── resourcepacks/
-│   └── shaderpacks/
-└── .mpcache/               # download cache
-```
-
 ## Commands reference
 
 ### Core commands
