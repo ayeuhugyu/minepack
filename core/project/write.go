@@ -92,6 +92,32 @@ func WriteProject(proj *Project) error {
 		defer incompatSumFile.Close()
 	}
 
+	// Initialize git repository and version history
+	_, err = InitGitRepo(projDir)
+	if err != nil {
+		return err
+	}
+
+	// Initialize version history if it doesn't exist
+	versionHistoryPath := filepath.Join(projDir, "versions.mp.yaml")
+	if _, err := os.Stat(versionHistoryPath); os.IsNotExist(err) {
+		history := &VersionHistory{
+			Format:  VersionFormatBreakVer,
+			Current: "0.1",
+			Entries: []VersionEntry{},
+		}
+		err = WriteVersionHistory(projDir, history)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Create initial commit
+	_, err = CreateVersionCommit(projDir, "Initial minepack project")
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

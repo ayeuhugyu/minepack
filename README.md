@@ -9,6 +9,7 @@ a fast CLI tool for managing minecraft modpacks with instance linking.
 **instance linking** - sync your modpack to a minecraft instance to quickly test stuff\
 **bisect search** - easily find which mods are causing issues with a built in bisection search tool- also considers dependencies so nothing should break.\
 **dependency resolution** - automatically handles mod dependencies (unless the mod creator fails to add any)\
+**version management** - track modpack versions with semantic versioning, breaking versioning, increment-based, or custom formats. a git repository is used to allow you to easily revert to previous versions
 
 ## Installation
 
@@ -119,6 +120,42 @@ minepack link bisect next
 minepack link bisect finish
 ```
 
+### Version management
+
+track your modpack versions:
+
+```bash
+# set version format (semver, breakver, increment, or custom)
+minepack version format semver
+
+# set initial version
+minepack version set 1.0.0 -m "Initial release"
+
+# increment versions
+minepack version patch add 1  # 1.0.0 -> 1.0.1
+minepack version minor add 1  # 1.0.1 -> 1.1.0
+minepack version major add 1  # 1.1.0 -> 2.0.0
+
+# show version history
+minepack version show
+```
+
+#### Reverting to previous versions
+
+easily revert your entire modpack to any previous version:
+
+<img src="tapes/versionRevert.gif" width="1400" alt="Version Revert Demo">
+
+```bash
+# revert to a specific version
+minepack version revert 1.0.0
+
+# your mods will be restored to that version's state
+minepack list
+```
+
+(this is accomplished using a local git repository)
+
 ## Project Structure
 
 **YOU SHOULD NOT HAVE TO EDIT ANY FILES!!**\
@@ -128,6 +165,7 @@ this is only here for documentation purposes.
 ```bash
 my-modpack/
 ├── project.mp.yaml          # main project configuration
+├── versions.mp.yaml         # version history and tracking
 ├── content.mp.sum.yaml      # summary of all mods
 ├── incompat.mp.sum.yaml     # summary of all incompatible mods
 ├── linked.mp.yaml           # linked instances configuration
@@ -175,6 +213,16 @@ my-modpack/
 ### Self updating
 
 - `minepack selfupdate` - update minepack to latest version
+
+### Version Management
+
+- `minepack version format <semver|breakver|increment|custom>` - set the version format
+- `minepack version set <version>` - set a specific version
+- `minepack version show` - show current version and history
+- `minepack version major|minor <add|subtract|set> <value>` - update major/minor versions (semver and breakver)
+- `minepack version patch <add|subtract|set> <value>` - update patch version (semver only)
+- `minepack version add|subtract <value>` - update increment versions
+- `minepack version revert|goto <version>` - revert to a previous version
 
 ## Filtering options
 

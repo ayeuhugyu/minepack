@@ -81,7 +81,15 @@ func (p *Project) AddContent(content ContentData) error {
 	encoder := yaml.NewEncoder(contentFile)
 	defer encoder.Close()
 
-	return encoder.Encode(content)
+	err = encoder.Encode(content)
+	if err != nil {
+		return err
+	}
+
+	// Auto-commit the changes
+	_ = AutoCommit(p.Root, fmt.Sprintf("Add content: %s", content.Slug))
+
+	return nil
 }
 
 func (p *Project) UpdateContent(content ContentData) error {
@@ -117,7 +125,15 @@ func (p *Project) UpdateContent(content ContentData) error {
 	encoder := yaml.NewEncoder(contentFile)
 	defer encoder.Close()
 
-	return encoder.Encode(content)
+	err = encoder.Encode(content)
+	if err != nil {
+		return err
+	}
+
+	// Auto-commit the changes
+	_ = AutoCommit(p.Root, fmt.Sprintf("Update content: %s", content.Slug))
+
+	return nil
 }
 
 func (p *Project) RemoveContent(idOrSlug string) error {
@@ -139,7 +155,15 @@ func (p *Project) RemoveContent(idOrSlug string) error {
 	}
 	// remove the full file from root/content/slug.mp.yaml
 	fullPath := filepath.Join(p.Root, "content", fmt.Sprintf("%s.mp.yaml", idOrSlug))
-	return os.Remove(fullPath)
+	err = os.Remove(fullPath)
+	if err != nil {
+		return err
+	}
+
+	// Auto-commit the changes
+	_ = AutoCommit(p.Root, fmt.Sprintf("Remove content: %s", idOrSlug))
+
+	return nil
 }
 
 func (p *Project) GetContent(idOrSlug string) (*ContentData, error) {
