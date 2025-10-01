@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"minepack/core/project"
@@ -40,7 +41,7 @@ var versionShowCmd = &cobra.Command{
 		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#874BFD")).
-			Padding(1, 2)
+			Padding(0, 1)
 
 		// Build content
 		var content string
@@ -59,17 +60,18 @@ var versionShowCmd = &cobra.Command{
 			for i := len(history.Entries) - 1; i >= start; i-- {
 				entry := history.Entries[i]
 				timestamp := entry.Timestamp.Format(time.RFC3339)
-				content += fmt.Sprintf("  %s - %s\n", valueStyle.Render(entry.Version), entry.Message)
-				content += fmt.Sprintf("    %s (%s)\n", entry.CommitSHA[:8], timestamp)
+				content += fmt.Sprintf("  %s - %s", valueStyle.Render(entry.Version), entry.Message) + "\n"
+				content += fmt.Sprintf("    %s (%s)", entry.CommitSHA[:8], timestamp) + "\n"
 			}
 
 			if start > 0 {
-				content += fmt.Sprintf("\n  ... and %d more entries\n", start)
+				content += fmt.Sprintf("\n  ... and %d more entries", start) + "\n"
 			}
 		} else {
-			content += "\n" + labelStyle.Render("No version history yet\n")
+			content += "\n" + labelStyle.Render("No version history yet") + "\n"
 		}
-
+		// if the content ends in 1 or more newlines, remove all of them
+		content = strings.TrimRight(content, "\n")
 		fmt.Println(boxStyle.Render(content))
 	},
 }
