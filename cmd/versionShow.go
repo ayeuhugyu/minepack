@@ -46,7 +46,10 @@ var versionShowCmd = &cobra.Command{
 		var content string
 		content += labelStyle.Render("Current Version: ") + valueStyle.Render(history.Current) + "\n"
 		content += labelStyle.Render("Format: ") + valueStyle.Render(string(history.Format)) + "\n"
-
+		// if there is a message associated with this version, show it
+		if len(history.Entries) > 0 && history.Entries[len(history.Entries)-1].Version == history.Current {
+			content += labelStyle.Render("Message: ") + valueStyle.Render(history.Entries[len(history.Entries)-1].Message) + "\n"
+		}
 		// if the --history flag is set, show the version history
 		showHistory, _ := cmd.Flags().GetBool("history")
 		if showHistory && len(history.Entries) > 0 {
