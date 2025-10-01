@@ -30,7 +30,7 @@ var versionAddCmd = &cobra.Command{
 		}
 
 		if history.Format != project.VersionFormatIncrement {
-			fmt.Printf(util.FormatError("add command is only available for increment format\n"))
+			fmt.Println(util.FormatError("add command is only available for increment format"))
 			return
 		}
 
@@ -80,7 +80,7 @@ var versionSubtractCmd = &cobra.Command{
 		}
 
 		if history.Format != project.VersionFormatIncrement {
-			fmt.Printf(util.FormatError("subtract command is only available for increment format\n"))
+			fmt.Println(util.FormatError("subtract command is only available for increment format"))
 			return
 		}
 

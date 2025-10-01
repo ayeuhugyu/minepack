@@ -30,7 +30,7 @@ var versionMajorCmd = &cobra.Command{
 		}
 
 		if history.Format != project.VersionFormatSemVer && history.Format != project.VersionFormatBreakVer {
-			fmt.Printf(util.FormatError("major version command is only available for semver and breakver formats\n"))
+			fmt.Println(util.FormatError("major version command is only available for semver and breakver formats"))
 			return
 		}
 
@@ -86,7 +86,7 @@ var versionMinorCmd = &cobra.Command{
 		}
 
 		if history.Format != project.VersionFormatSemVer && history.Format != project.VersionFormatBreakVer {
-			fmt.Printf(util.FormatError("minor version command is only available for semver and breakver formats\n"))
+			fmt.Println(util.FormatError("minor version command is only available for semver and breakver formats"))
 			return
 		}
 
@@ -142,12 +142,12 @@ var versionPatchCmd = &cobra.Command{
 		}
 
 		if history.Format == project.VersionFormatBreakVer {
-			fmt.Printf(util.FormatError("patch version command is not available for breakver format (breakver only uses major.minor)\n"))
+			fmt.Println(util.FormatError("patch version command is not available for breakver format (breakver only uses major.minor)"))
 			return
 		}
 
 		if history.Format != project.VersionFormatSemVer {
-			fmt.Printf(util.FormatError("patch version command is only available for semver format\n"))
+			fmt.Println(util.FormatError("patch version command is only available for semver format"))
 			return
 		}
 
