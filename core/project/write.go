@@ -102,8 +102,8 @@ func WriteProject(proj *Project) error {
 	versionHistoryPath := filepath.Join(projDir, "versions.mp.yaml")
 	if _, err := os.Stat(versionHistoryPath); os.IsNotExist(err) {
 		history := &VersionHistory{
-			Format:  VersionFormatSemVer,
-			Current: "0.1.0",
+			Format:  VersionFormatBreakVer,
+			Current: "0.1",
 			Entries: []VersionEntry{},
 		}
 		err = WriteVersionHistory(projDir, history)
