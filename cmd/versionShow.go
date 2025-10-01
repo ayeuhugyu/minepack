@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"minepack/core/project"
 	"minepack/util"
@@ -48,7 +47,9 @@ var versionShowCmd = &cobra.Command{
 		content += labelStyle.Render("Current Version: ") + valueStyle.Render(history.Current) + "\n"
 		content += labelStyle.Render("Format: ") + valueStyle.Render(string(history.Format)) + "\n"
 
-		if len(history.Entries) > 0 {
+		// if the --history flag is set, show the version history
+		showHistory, _ := cmd.Flags().GetBool("history")
+		if showHistory && len(history.Entries) > 0 {
 			content += "\n" + labelStyle.Render("Version History:") + "\n\n"
 
 			// Show last 10 entries
@@ -59,15 +60,13 @@ var versionShowCmd = &cobra.Command{
 
 			for i := len(history.Entries) - 1; i >= start; i-- {
 				entry := history.Entries[i]
-				timestamp := entry.Timestamp.Format(time.RFC3339)
 				content += fmt.Sprintf("  %s - %s", valueStyle.Render(entry.Version), entry.Message) + "\n"
-				content += fmt.Sprintf("    %s (%s)", entry.CommitSHA[:8], timestamp) + "\n"
 			}
 
 			if start > 0 {
 				content += fmt.Sprintf("\n  ... and %d more entries", start) + "\n"
 			}
-		} else {
+		} else if showHistory {
 			content += "\n" + labelStyle.Render("No version history yet") + "\n"
 		}
 		// if the content ends in 1 or more newlines, remove all of them
@@ -78,4 +77,6 @@ var versionShowCmd = &cobra.Command{
 
 func init() {
 	versionCmd.AddCommand(versionShowCmd)
+	// -h is reserved for help, so we use -i
+	versionShowCmd.Flags().BoolP("history", "i", false, "show version history")
 }
