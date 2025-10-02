@@ -13,9 +13,35 @@ a fast CLI tool for managing minecraft modpacks with instance linking.
 
 ## Installation
 
-### Download Pre-built Binaries
+### Quick Install (Recommended)
 
-download the latest release for your platform from [releases](https://github.com/ayeuhugyu/minepack/releases)
+#### Linux / macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ayeuhugyu/minepack/main/install.sh | bash
+```
+
+Or using wget:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/ayeuhugyu/minepack/main/install.sh | bash
+```
+
+This will automatically download the latest release for your platform and install it to `~/.local/bin`.
+
+#### Windows
+
+Open PowerShell and run:
+
+```powershell
+irm https://raw.githubusercontent.com/ayeuhugyu/minepack/main/install.ps1 | iex
+```
+
+This will automatically download the latest release and install it to `%USERPROFILE%\.minepack\bin`, then add it to your PATH.
+
+### Manual Download
+
+Download the latest release for your platform from [releases](https://github.com/ayeuhugyu/minepack/releases)
 
 ### Build from Source
 
@@ -28,7 +54,7 @@ go build -ldflags "-X minepack/util/version.Version=$(git describe --tags --alwa
 
 ### Self-Update
 
-keep minepack up to date automatically:
+Keep minepack up to date automatically:
 
 ```bash
 minepack selfupdate
