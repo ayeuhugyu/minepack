@@ -60,7 +60,7 @@ case $platform in
     ;;
 esac
 
-if [[ $target == darwin-x64 ]]; then
+if [[ $target == darwin-amd64 ]]; then
     # Check if running in Rosetta
     if [[ $(sysctl -n sysctl.proc_translated 2>/dev/null) == 1 ]]; then
         target='darwin-arm64'
@@ -92,7 +92,7 @@ release_data=$(curl -sL "$release_url")
 # Extract tag name and download URL
 tag_name=$(echo "$release_data" | grep '"tag_name":' | sed -E 's/.*"tag_name": "([^"]+)".*/\1/')
 if [[ -z "$tag_name" ]]; then
-    error "Failed to fetch latest release information"
+    error "Failed to fetch latest release information. Please check your internet connection."
 fi
 
 # Construct binary name and download URL

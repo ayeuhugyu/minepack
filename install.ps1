@@ -97,12 +97,14 @@ try {
   $Release = Invoke-RestMethod -Uri $ReleaseUrl -UseBasicParsing
 } catch {
   Write-Output "Error fetching release information: $_"
+  Write-Output "Please check your internet connection and try again."
   return 1
 }
 
 $TagName = $Release.tag_name
 if (-not $TagName) {
   Write-Output "Failed to fetch latest release information"
+  Write-Output "Please check your internet connection and try again."
   return 1
 }
 
