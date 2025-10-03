@@ -76,12 +76,29 @@ if [[ ! -d "$install_dir" ]]; then
     info "Created directory: $install_dir"
 fi
 
-# Check if install_dir is in PATH
+# Check if install_dir is in PATH and add it if not
 if [[ ":$PATH:" != *":$install_dir:"* ]]; then
-    info "Note: $install_dir is not in your PATH"
-    info "Add it to your PATH by running:"
-    info_bold "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
-    info "  (or ~/.zshrc, ~/.profile, etc. depending on your shell)"
+    info "Adding $install_dir to your PATH..."
+    
+    # Determine shell config file
+    shell_config="$HOME/.bashrc"
+    if [[ -n "${ZSH_VERSION:-}" ]] && [[ -f "$HOME/.zshrc" ]]; then
+        shell_config="$HOME/.zshrc"
+    elif [[ -f "$HOME/.bash_profile" ]] && [[ "$OSTYPE" == "darwin"* ]]; then
+        shell_config="$HOME/.bash_profile"
+    fi
+    
+    # Add minepack PATH configuration to shell config if not already present
+    if ! grep -q "# minepack" "$shell_config" 2>/dev/null; then
+        echo "" >> "$shell_config"
+        echo "# minepack" >> "$shell_config"
+        echo "export MINEPACK_INSTALL=\"$install_dir\"" >> "$shell_config"
+        echo "export PATH=\"\$MINEPACK_INSTALL:\$PATH\"" >> "$shell_config"
+        success "Added minepack to PATH in $shell_config"
+        info "Please restart your shell or run: source $shell_config"
+    else
+        info "minepack PATH configuration already exists in $shell_config"
+    fi
 fi
 
 # Get latest release info from GitHub
@@ -142,10 +159,13 @@ installed_version=$("$install_path" --version | head -1)
 success "Successfully installed $installed_version!"
 success "Binary location: $install_path"
 
-# Remind about PATH if needed
+# Show PATH status
 if [[ ":$PATH:" != *":$install_dir:"* ]]; then
     echo ""
-    info_bold "⚠ Remember to add $install_dir to your PATH to use minepack from anywhere!"
+    info_bold "🔄 PATH updated! Please restart your shell or run: source ~/.bashrc"
+else
+    echo ""
+    success "✅ minepack is ready to use!"
 fi
 
 echo ""
