@@ -470,13 +470,13 @@ func SetVersionFormat(projPath string, format VersionFormat) error {
 	if history.Current == "" {
 		switch format {
 		case VersionFormatSemVer:
-			history.Current = "0.1.0"
+			history.Current = "0.0.0"
 		case VersionFormatBreakVer:
-			history.Current = "0.1"
+			history.Current = "0.0"
 		case VersionFormatIncrement:
-			history.Current = "1"
+			history.Current = "0"
 		case VersionFormatCustom:
-			history.Current = "1.0"
+			history.Current = "0.0"
 		}
 	}
 
@@ -484,20 +484,20 @@ func SetVersionFormat(projPath string, format VersionFormat) error {
 	switch format {
 	case VersionFormatSemVer:
 		if _, _, _, err := ParseSemVer(history.Current); err != nil {
-			history.Current = "0.1.0"
+			history.Current = "0.0.0"
 		}
 	case VersionFormatBreakVer:
 		if _, _, err := ParseBreakVer(history.Current); err != nil {
-			history.Current = "0.1"
+			history.Current = "0.0"
 		}
 	case VersionFormatIncrement:
 		if _, err := strconv.Atoi(history.Current); err != nil {
-			history.Current = "1"
+			history.Current = "0"
 		}
 	case VersionFormatCustom:
 		// Custom format, do not enforce any specific version pattern
 		if history.Current == "" {
-			history.Current = "1.0"
+			history.Current = "0.0"
 		}
 	}
 
