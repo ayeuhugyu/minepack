@@ -6,10 +6,14 @@ Set Height 1200
 Set FontSize 32
 
 Sleep 2s
-
+Hide
 Type "cd testProject" Sleep 500ms Enter
+Type "clear" Sleep 500ms Enter
 Sleep 1s
-Type "./minepack import ./.minecraft/" Sleep 500ms  Enter
+Show
+
+Sleep 1s
+Type "minepack import ./.minecraft/" Sleep 500ms  Enter
 Sleep 2s
 Type "1.20.1" Sleep 500ms Enter
 Sleep 5s
@@ -22,5 +26,5 @@ Type "myself" Sleep 500ms Enter
 Sleep 3s
 Type "cd ./imported-pack/" Sleep 500ms Enter
 Sleep 2s
-Type "../minepack list" Sleep 500ms Enter
+Type ".minepack list" Sleep 500ms Enter
 Sleep 5s

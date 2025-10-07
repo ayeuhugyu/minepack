@@ -7,16 +7,18 @@ Set FontSize 32
 
 Sleep 2s
 
-Type "./minepack init" Sleep 500ms  Enter
+Type "minepack init" Sleep 500ms  Enter
 Sleep 1s
 Type "testProject" Sleep 500ms Enter
 Sleep 0.5s
 Type "hiiiii" Sleep 500ms Enter
 Sleep 1s
 Type "myself" Sleep 500ms Enter
-Sleep 2s
+Wait /ctrl\+e complete.+/
+Sleep 1s
 Type "1.20.1" Sleep 500ms Enter
-Sleep 5s
+Wait /↑ up • ↓ down.+/
+Sleep 2s
 Enter
 Sleep 1s
 Enter
