@@ -29,5 +29,5 @@ Type "myself" Sleep 500ms Enter
 Sleep 3s
 Type "cd ./imported-pack/" Sleep 500ms Enter
 Sleep 2s
-Type ".minepack list" Sleep 500ms Enter
+Type "minepack list" Sleep 500ms Enter
 Sleep 5s
