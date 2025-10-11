@@ -4,6 +4,9 @@ Set Shell "bash"
 Set Width 1200
 Set Height 1200
 Set FontSize 32
+Set PlaybackSpeed 1.0
+Set Framerate 60
+Set TypingSpeed 50ms
 
 Sleep 2s
 

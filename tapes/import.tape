@@ -4,6 +4,9 @@ Set Shell "bash"
 Set Width 2200
 Set Height 1200
 Set FontSize 32
+Set PlaybackSpeed 1.0
+Set Framerate 60
+Set TypingSpeed 50ms
 
 Sleep 2s
 Hide
@@ -26,5 +29,5 @@ Type "myself" Sleep 500ms Enter
 Sleep 3s
 Type "cd ./imported-pack/" Sleep 500ms Enter
 Sleep 2s
-Type ".minepack list" Sleep 500ms Enter
+Type "minepack list" Sleep 500ms Enter
 Sleep 5s
