@@ -233,14 +233,6 @@ a few commands support filtering options:
 - `--client-only` - only include client-side mods  
 - `--source <modrinth|curseforge>` - filter by mod source
 
-## Contributing
-
-1. fork the repository
-2. create a feature branch: `git checkout -b feature/amazing-feature`
-3. commit your changes: `git commit -m 'add amazing new features'`
-4. push to the branch: `git push origin feature/amazing-feature`
-5. open a Pull Request
-
 ## License
 
 this project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
