@@ -4,12 +4,11 @@ a tool for managing minecraft modpacks with ease
 
 ## Features
 
-**multi-source support** - add mods from modrinth and curseforge\
 **export formats** - export to `.mrpack` (modrinth) (curseforge support coming soon:tm:)\
 **instance linking** - sync your modpack to a minecraft instance to quickly test stuff\
 **bisect search** - easily find which mods are causing issues with a built in bisection search tool- also considers dependencies so nothing should break.\
 **dependency resolution** - automatically handles mod dependencies (unless the mod creator fails to add any)\
-**version management** - track modpack versions with semantic versioning, breaking versioning, increment-based, or custom formats. a git repository is used to allow you to easily revert to previous versions
+**version management** - track modpack versions
 
 ## Installation
 
@@ -67,7 +66,6 @@ minepack selfupdate
 <img src="tapes/init.gif" width="600" alt="Initialize Demo">
 
 ```bash
-# create a new modpack project
 minepack init
 ```
 
@@ -76,7 +74,6 @@ minepack init
 <img src="tapes/add.gif" width="600" alt="Add Mods Demo">
 
 ```bash
-# add mods by searching
 minepack add sodium
 minepack add create
 ```
@@ -89,14 +86,14 @@ minepack add create
 # list all mods in your modpack
 minepack list
 
-# view some pack statistics
+# view generic pack data
 minepack stats
 ```
 
 ### 4. Export your modpack
 
 ```bash
-# export as modrinth pack (.mrpack)
+# export as .mrpack
 minepack export modrinth
 ```
 
@@ -119,6 +116,7 @@ minepack link list
 minepack link update
 
 # filter updates by side or source
+# (useful to download all server side only mods or vice versa)
 minepack link update --server-only
 minepack link update --client-only
 minepack link update --source modrinth
@@ -140,7 +138,7 @@ minepack link bisect next
 # get the next set of mods to test
 # after the first time, it will ask the test results of the previous one (good|bad)
 minepack link bisect next
-# keep bisecting until you narrow it down to one mod that is causing problems.
+# keep bisecting until you narrow it down to one mod that is causing problems
 
 # finish bisection
 minepack link bisect finish
@@ -163,12 +161,12 @@ minepack version minor add 1  # 1.0.1 -> 1.1.0
 minepack version major add 1  # 1.1.0 -> 2.0.0
 
 # show version history
-minepack version show
+minepack version show --history
 ```
 
 #### Reverting to previous versions
 
-easily revert your entire modpack to any previous version:
+revert your entire modpack to any previous version:
 
 <img src="tapes/versionRevert.gif" width="600" alt="Version Revert Demo">
 
@@ -180,58 +178,7 @@ minepack version revert 1.0.0
 minepack list
 ```
 
-(this is accomplished using a local git repository)
-
-## Commands reference
-
-### Core commands
-
-- `minepack init` - initialize a new modpack project
-- `minepack add <mod>` - add mods to your modpack
-- `minepack remove <mod>` - remove mods from your modpack
-- `minepack list` - list all mods in your modpack
-- `minepack stats` - show pack statistics
-- `minepack search <query>` - search for mods
-
-### Export/Import
-
-- `minepack export modrinth` - export as modrinth pack
-- `minepack import <mrpack file/instance folder>` - import existing modpack
-
-### Instance Management
-
-- `minepack link add <path>` - link a minecraft instance
-- `minepack link remove <path>` - unlink an instance
-- `minepack link list` - list linked instances
-- `minepack link update` - sync modpack to all linked instances
-
-### Debugging
-
-- `minepack link bisect <instance>` - start bisect session
-- `minepack link bisect next` - get next test set / mark previous as good|bad
-- `minepack link bisect finish` - finish bisect session
-
-### Self updating
-
-- `minepack selfupdate` - update minepack to latest version
-
-### Version Management
-
-- `minepack version format <semver|breakver|increment|custom>` - set the version format
-- `minepack version set <version>` - set a specific version
-- `minepack version show` - show current version and history
-- `minepack version major|minor <add|subtract|set> <value>` - update major/minor versions (semver and breakver)
-- `minepack version patch <add|subtract|set> <value>` - update patch version (semver only)
-- `minepack version add|subtract <value>` - update increment versions
-- `minepack version revert|goto <version>` - revert to a previous version
-
-## Filtering options
-
-a few commands support filtering options:
-
-- `--server-only` - only include server-side mods
-- `--client-only` - only include client-side mods  
-- `--source <modrinth|curseforge>` - filter by mod source
+(this is done using a local git repository)
 
 ## License
 
