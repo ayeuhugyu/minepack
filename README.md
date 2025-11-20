@@ -6,7 +6,7 @@ a tool for managing minecraft modpacks with ease
 
 **export formats** - export to `.mrpack` (modrinth) (curseforge support coming soon:tm:)\
 **instance linking** - sync your modpack to a minecraft instance to quickly test stuff\
-**bisect search** - easily find which mods are causing issues with a built in bisection search tool- also considers dependencies so nothing should break.\
+**bisect search** - easily find which mods are causing issues with a built in bisection search tool\
 **dependency resolution** - automatically handles mod dependencies (unless the mod creator fails to add any)\
 **version management** - track modpack versions
 
