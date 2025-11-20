@@ -1,6 +1,6 @@
 # Minepack
 
-a fast CLI tool for managing minecraft modpacks with instance linking.
+a tool for managing minecraft modpacks with ease
 
 ## Features
 
